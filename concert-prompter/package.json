@@ -11,7 +11,8 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev -w lyrics-service\" \"npm run dev -w control-ui\" \"npm run dev -w audience-ui\" \"npm run dev -w singer-ui\"",
-    "start": "npm run dev"
+    "start": "npm run dev",
+    "stop": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$ids = Get-NetTCPConnection -LocalPort 3000,3001,3002,4000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -ne 0 }; if ($ids) { $ids | ForEach-Object { Stop-Process -Id $_ -Force } }; exit 0\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
