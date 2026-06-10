@@ -1,0 +1,19 @@
+{
+  "name": "concert-prompter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "services/lyrics-service",
+    "apps/control-ui",
+    "apps/audience-ui",
+    "apps/singer-ui"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w lyrics-service\" \"npm run dev -w control-ui\" \"npm run dev -w audience-ui\" \"npm run dev -w singer-ui\"",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
