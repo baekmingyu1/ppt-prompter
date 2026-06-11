@@ -33,6 +33,12 @@ body {
   color: #aaa;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .status {
   padding: 8px 12px;
   border-radius: 999px;
@@ -118,11 +124,57 @@ textarea {
   margin-top: 8px;
 }
 
+.song-toolbar,
+.editor-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.song-toolbar {
+  margin-bottom: 8px;
+}
+
+.song-toolbar label {
+  margin-bottom: 0;
+}
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #333;
+  color: #fff;
+  font-size: 16px;
+  text-decoration: none;
+}
+
+.button-link:hover {
+  background: #444;
+}
+
 .editor-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   margin-top: 16px;
+}
+
+.editor-footer .editor-actions {
+  margin-top: 0;
+}
+
+.lyrics-editor {
+  min-height: 520px;
+}
+
+.line-summary {
+  color: #aaa;
+  font-size: 14px;
 }
 
 .meta {
@@ -229,7 +281,10 @@ button.danger:hover {
 @media (max-width: 720px) {
   .header,
   .meta,
-  .section-header {
+  .section-header,
+  .header-actions,
+  .song-toolbar,
+  .editor-footer {
     flex-direction: column;
   }
 
@@ -240,5 +295,13 @@ button.danger:hover {
 
   .editor-actions {
     flex-direction: column;
+  }
+
+  .header-actions,
+  .song-toolbar,
+  .editor-footer,
+  .button-link {
+    align-items: stretch;
+    width: 100%;
   }
 }

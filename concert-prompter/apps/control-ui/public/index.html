@@ -17,7 +17,10 @@
     </header>
 
     <section class="panel">
-      <label for="songSelect">곡 선택</label>
+      <div class="song-toolbar">
+        <label for="songSelect">곡 선택</label>
+        <a class="button-link" href="./edit.html">가사 편집</a>
+      </div>
       <select id="songSelect"></select>
     </section>
 
@@ -48,32 +51,6 @@
     <section class="panel">
       <h2>전체 가사</h2>
       <ol id="lyricsList" class="lyrics-list"></ol>
-    </section>
-
-    <section class="panel editor-panel">
-      <div class="section-header">
-        <h2>가사 편집</h2>
-        <span id="saveStatus" class="save-status">저장 대기</span>
-      </div>
-
-      <div class="form-grid">
-        <label>
-          곡 제목
-          <input id="editTitle" type="text" />
-        </label>
-        <label>
-          아티스트
-          <input id="editArtist" type="text" />
-        </label>
-      </div>
-
-      <label for="editLyrics">가사</label>
-      <textarea id="editLyrics" rows="10" placeholder="한 줄에 가사 한 줄씩 입력"></textarea>
-
-      <div class="editor-actions">
-        <button id="resetEditButton" type="button">되돌리기</button>
-        <button id="saveEditButton" type="button" class="primary">저장</button>
-      </div>
     </section>
 
     <section class="links">

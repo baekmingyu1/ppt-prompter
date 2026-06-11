@@ -13,16 +13,8 @@ const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
 const lyricsList = document.getElementById('lyricsList');
-const editTitle = document.getElementById('editTitle');
-const editArtist = document.getElementById('editArtist');
-const editLyrics = document.getElementById('editLyrics');
-const resetEditButton = document.getElementById('resetEditButton');
-const saveEditButton = document.getElementById('saveEditButton');
-const saveStatus = document.getElementById('saveStatus');
 
 let latestState = null;
-let editorDirty = false;
-let editorSongId = null;
 
 function renderSongs(payload) {
   songSelect.innerHTML = '';
@@ -58,38 +50,11 @@ function renderLyricsList(payload) {
   });
 }
 
-function setSaveStatus(message, type = '') {
-  saveStatus.textContent = message;
-  saveStatus.classList.remove('saved', 'error');
-
-  if (type) {
-    saveStatus.classList.add(type);
-  }
-}
-
-function fillEditor(payload) {
-  editTitle.value = payload.song.title || '';
-  editArtist.value = payload.song.artist || '';
-  editLyrics.value = (payload.lyrics || []).join('\n');
-  editorSongId = payload.song.id;
-  editorDirty = false;
-  setSaveStatus('저장 대기');
-}
-
-function renderEditor(payload) {
-  if (editorDirty && editorSongId === payload.song.id) {
-    return;
-  }
-
-  fillEditor(payload);
-}
-
 function render(payload) {
   latestState = payload;
 
   renderSongs(payload);
   renderLyricsList(payload);
-  renderEditor(payload);
 
   songTitle.textContent = `${payload.song.title} - ${payload.song.artist || ''}`;
   lineCounter.textContent = `${payload.state.lineIndex + 1} / ${payload.song.totalLines}`;
@@ -144,56 +109,6 @@ blankOffButton.addEventListener('click', () => {
   socket.emit('control:blank', {
     blank: false
   });
-});
-
-[editTitle, editArtist, editLyrics].forEach((element) => {
-  element.addEventListener('input', () => {
-    editorDirty = true;
-    setSaveStatus('수정 중');
-  });
-});
-
-resetEditButton.addEventListener('click', () => {
-  if (!latestState) {
-    return;
-  }
-
-  fillEditor(latestState);
-});
-
-saveEditButton.addEventListener('click', () => {
-  if (!latestState) {
-    return;
-  }
-
-  const lyrics = editLyrics.value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  saveEditButton.disabled = true;
-  setSaveStatus('저장 중');
-
-  socket.emit(
-    'control:updateSong',
-    {
-      songId: latestState.song.id,
-      title: editTitle.value,
-      artist: editArtist.value,
-      lyrics
-    },
-    (response) => {
-      saveEditButton.disabled = false;
-
-      if (!response?.ok) {
-        setSaveStatus(response?.message || '저장 실패', 'error');
-        return;
-      }
-
-      editorDirty = false;
-      setSaveStatus('저장 완료', 'saved');
-    }
-  );
 });
 
 document.addEventListener('keydown', (event) => {

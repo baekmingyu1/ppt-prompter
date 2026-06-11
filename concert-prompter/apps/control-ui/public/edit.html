@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Concert Prompter Lyrics Edit</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="page editor-page">
+    <header class="header">
+      <div>
+        <h1>가사 편집</h1>
+        <p>곡별 가사 목록을 수정하는 화면</p>
+      </div>
+      <div class="header-actions">
+        <a class="button-link" href="./index.html">제어 화면</a>
+        <div id="connectionStatus" class="status">연결 대기</div>
+      </div>
+    </header>
+
+    <section class="panel">
+      <label for="songSelect">편집할 곡</label>
+      <select id="songSelect"></select>
+    </section>
+
+    <section class="panel editor-panel">
+      <div class="section-header">
+        <h2>곡 정보 및 가사</h2>
+        <span id="saveStatus" class="save-status">저장 대기</span>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          곡 제목
+          <input id="editTitle" type="text" />
+        </label>
+        <label>
+          아티스트
+          <input id="editArtist" type="text" />
+        </label>
+      </div>
+
+      <label for="editLyrics">가사</label>
+      <textarea id="editLyrics" class="lyrics-editor" rows="18" placeholder="한 줄에 가사 한 줄씩 입력"></textarea>
+
+      <div class="editor-footer">
+        <span id="lineSummary" class="line-summary">0줄</span>
+        <div class="editor-actions">
+          <button id="resetEditButton" type="button">되돌리기</button>
+          <button id="saveEditButton" type="button" class="primary">저장</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="http://localhost:4000/socket.io/socket.io.js"></script>
+  <script src="./edit.js"></script>
+</body>
+</html>
