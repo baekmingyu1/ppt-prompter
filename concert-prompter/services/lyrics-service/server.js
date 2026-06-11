@@ -20,7 +20,9 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  limit: '14mb'
+}));
 
 app.get('/', (req, res) => {
   res.redirect('/control/');
@@ -50,19 +52,30 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  maxHttpBufferSize: 14 * 1024 * 1024
 });
+
+const MAX_BACKGROUND_IMAGE_BYTES = 10 * 1024 * 1024;
+const DEFAULT_DISPLAY_SETTINGS = {
+  lineCount: 1,
+  audience: {
+    fontSizeVw: 6,
+    fontColor: '#ffffff',
+    backgroundImage: ''
+  },
+  singer: {
+    fontSizeVw: 6,
+    fontColor: '#ffffff'
+  }
+};
 
 let songs = [];
 let state = {
   songId: null,
   lineIndex: 0,
   blank: false,
-  displaySettings: {
-    fontSizeVw: 6,
-    fontColor: '#ffffff',
-    lineCount: 1
-  },
+  displaySettings: JSON.parse(JSON.stringify(DEFAULT_DISPLAY_SETTINGS)),
   updatedAt: new Date().toISOString()
 };
 
@@ -100,27 +113,71 @@ function getVisibleLines(lyrics, startIndex, count) {
   return lyrics.slice(startIndex, startIndex + count);
 }
 
-function normalizeDisplaySettings(settings = {}) {
+function normalizeRoleSettings(settings = {}, role) {
   const fontSizeVw = Number(settings.fontSizeVw);
-  const lineCount = Number(settings.lineCount);
   const fontColor = String(settings.fontColor || '').trim();
 
   if (!Number.isFinite(fontSizeVw) || fontSizeVw < 3 || fontSizeVw > 12) {
     throw new Error('폰트 크기는 3부터 12 사이여야 합니다.');
   }
 
-  if (!Number.isInteger(lineCount) || lineCount < 1 || lineCount > 4) {
-    throw new Error('노출 줄 수는 1부터 4 사이의 정수여야 합니다.');
-  }
-
   if (!/^#[0-9a-fA-F]{6}$/.test(fontColor)) {
     throw new Error('폰트 색상은 #RRGGBB 형식이어야 합니다.');
   }
 
-  return {
+  const normalized = {
     fontSizeVw,
-    fontColor,
-    lineCount
+    fontColor
+  };
+
+  if (role === 'audience') {
+    const backgroundImage = String(settings.backgroundImage || '');
+
+    if (backgroundImage && !backgroundImage.startsWith('data:image/')) {
+      throw new Error('배경 이미지는 이미지 파일만 사용할 수 있습니다.');
+    }
+
+    if (backgroundImage && Buffer.byteLength(backgroundImage, 'utf8') > MAX_BACKGROUND_IMAGE_BYTES * 1.4) {
+      throw new Error('배경 이미지는 10MB 이하만 사용할 수 있습니다.');
+    }
+
+    normalized.backgroundImage = backgroundImage;
+  }
+
+  return normalized;
+}
+
+function normalizeDisplaySettings(settings = {}) {
+  const migratedSettings = {
+    ...DEFAULT_DISPLAY_SETTINGS,
+    ...settings,
+    audience: {
+      ...DEFAULT_DISPLAY_SETTINGS.audience,
+      ...(settings.audience || {})
+    },
+    singer: {
+      ...DEFAULT_DISPLAY_SETTINGS.singer,
+      ...(settings.singer || {})
+    }
+  };
+
+  if (settings.fontSizeVw !== undefined || settings.fontColor !== undefined) {
+    migratedSettings.audience.fontSizeVw = Number(settings.fontSizeVw ?? migratedSettings.audience.fontSizeVw);
+    migratedSettings.audience.fontColor = String(settings.fontColor ?? migratedSettings.audience.fontColor);
+    migratedSettings.singer.fontSizeVw = Number(settings.fontSizeVw ?? migratedSettings.singer.fontSizeVw);
+    migratedSettings.singer.fontColor = String(settings.fontColor ?? migratedSettings.singer.fontColor);
+  }
+
+  const lineCount = Number(migratedSettings.lineCount);
+
+  if (!Number.isInteger(lineCount) || lineCount < 1 || lineCount > 4) {
+    throw new Error('노출 줄 수는 1부터 4 사이의 정수여야 합니다.');
+  }
+
+  return {
+    lineCount,
+    audience: normalizeRoleSettings(migratedSettings.audience, 'audience'),
+    singer: normalizeRoleSettings(migratedSettings.singer, 'singer')
   };
 }
 

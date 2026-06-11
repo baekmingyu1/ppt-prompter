@@ -4,13 +4,22 @@ const socket = io(LYRICS_SERVICE_URL);
 const lyric = document.getElementById('lyric');
 
 function applyDisplaySettings(settings = {}) {
-  if (settings.fontSizeVw) {
-    lyric.style.fontSize = `${settings.fontSizeVw}vw`;
+  const audienceSettings = settings.audience || settings;
+
+  if (audienceSettings.fontSizeVw) {
+    lyric.style.fontSize = `${audienceSettings.fontSizeVw}vw`;
   }
 
-  if (settings.fontColor) {
-    lyric.style.color = settings.fontColor;
+  if (audienceSettings.fontColor) {
+    lyric.style.color = audienceSettings.fontColor;
   }
+
+  if (audienceSettings.backgroundImage) {
+    document.body.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.42)), url("${audienceSettings.backgroundImage}")`;
+    return;
+  }
+
+  document.body.style.backgroundImage = '';
 }
 
 function render(payload) {

@@ -13,13 +13,21 @@ const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
 const lyricsList = document.getElementById('lyricsList');
-const fontSizeInput = document.getElementById('fontSizeInput');
-const fontSizeValue = document.getElementById('fontSizeValue');
-const fontColorInput = document.getElementById('fontColorInput');
+const audienceFontSizeInput = document.getElementById('audienceFontSizeInput');
+const audienceFontSizeValue = document.getElementById('audienceFontSizeValue');
+const audienceFontColorInput = document.getElementById('audienceFontColorInput');
+const audienceBackgroundInput = document.getElementById('audienceBackgroundInput');
+const audienceBackgroundName = document.getElementById('audienceBackgroundName');
+const clearAudienceBackgroundButton = document.getElementById('clearAudienceBackgroundButton');
+const singerFontSizeInput = document.getElementById('singerFontSizeInput');
+const singerFontSizeValue = document.getElementById('singerFontSizeValue');
+const singerFontColorInput = document.getElementById('singerFontColorInput');
 const lineCountSelect = document.getElementById('lineCountSelect');
 const displayStatus = document.getElementById('displayStatus');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
+
+const MAX_BACKGROUND_IMAGE_BYTES = 10 * 1024 * 1024;
 
 let latestState = null;
 let settingsRenderLocked = false;
@@ -63,11 +71,18 @@ function renderLyricsList(payload) {
 
 function renderDisplaySettings(payload) {
   const settings = payload.state.displaySettings;
+  const audienceSettings = settings.audience || settings;
+  const singerSettings = settings.singer || settings;
 
   settingsRenderLocked = true;
-  fontSizeInput.value = settings.fontSizeVw;
-  fontSizeValue.textContent = `${settings.fontSizeVw}vw`;
-  fontColorInput.value = settings.fontColor;
+  audienceFontSizeInput.value = audienceSettings.fontSizeVw;
+  audienceFontSizeValue.textContent = `${audienceSettings.fontSizeVw}vw`;
+  audienceFontColorInput.value = audienceSettings.fontColor;
+  audienceBackgroundName.textContent = audienceSettings.backgroundImage ? '배경 이미지 적용됨' : '이미지 없음';
+  clearAudienceBackgroundButton.disabled = !audienceSettings.backgroundImage;
+  singerFontSizeInput.value = singerSettings.fontSizeVw;
+  singerFontSizeValue.textContent = `${singerSettings.fontSizeVw}vw`;
+  singerFontColorInput.value = singerSettings.fontColor;
   lineCountSelect.value = String(settings.lineCount);
   settingsRenderLocked = false;
 }
@@ -157,30 +172,107 @@ blankOffButton.addEventListener('click', () => {
   });
 });
 
-[fontSizeInput, fontColorInput, lineCountSelect].forEach((element) => {
+function buildDisplaySettingsPayload(overrides = {}) {
+  return {
+    lineCount: Number(lineCountSelect.value),
+    audience: {
+      fontSizeVw: Number(audienceFontSizeInput.value),
+      fontColor: audienceFontColorInput.value,
+      backgroundImage: latestState?.state?.displaySettings?.audience?.backgroundImage || ''
+    },
+    singer: {
+      fontSizeVw: Number(singerFontSizeInput.value),
+      fontColor: singerFontColorInput.value
+    },
+    ...overrides
+  };
+}
+
+function updateDisplaySettings(payload) {
+  setDisplayStatus('설정 중');
+
+  socket.emit('control:updateDisplaySettings', payload, (response) => {
+    if (!response?.ok) {
+      setDisplayStatus(response?.message || '설정 실패', 'error');
+      return;
+    }
+
+    setDisplayStatus('설정 적용됨', 'saved');
+  });
+}
+
+[
+  audienceFontSizeInput,
+  audienceFontColorInput,
+  singerFontSizeInput,
+  singerFontColorInput,
+  lineCountSelect
+].forEach((element) => {
   element.addEventListener('input', () => {
     if (settingsRenderLocked) {
       return;
     }
 
-    const payload = {
-      fontSizeVw: Number(fontSizeInput.value),
-      fontColor: fontColorInput.value,
-      lineCount: Number(lineCountSelect.value)
-    };
-
-    fontSizeValue.textContent = `${payload.fontSizeVw}vw`;
-    setDisplayStatus('설정 중');
-
-    socket.emit('control:updateDisplaySettings', payload, (response) => {
-      if (!response?.ok) {
-        setDisplayStatus(response?.message || '설정 실패', 'error');
-        return;
-      }
-
-      setDisplayStatus('설정 적용됨', 'saved');
-    });
+    audienceFontSizeValue.textContent = `${audienceFontSizeInput.value}vw`;
+    singerFontSizeValue.textContent = `${singerFontSizeInput.value}vw`;
+    updateDisplaySettings(buildDisplaySettingsPayload());
   });
+});
+
+audienceBackgroundInput.addEventListener('change', () => {
+  const file = audienceBackgroundInput.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  if (!file.type.startsWith('image/')) {
+    setDisplayStatus('이미지 파일만 선택할 수 있습니다.', 'error');
+    audienceBackgroundInput.value = '';
+    return;
+  }
+
+  if (file.size > MAX_BACKGROUND_IMAGE_BYTES) {
+    setDisplayStatus('배경 이미지는 10MB 이하만 가능합니다.', 'error');
+    audienceBackgroundInput.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.addEventListener('load', () => {
+    const payload = buildDisplaySettingsPayload({
+      audience: {
+        fontSizeVw: Number(audienceFontSizeInput.value),
+        fontColor: audienceFontColorInput.value,
+        backgroundImage: reader.result
+      }
+    });
+
+    audienceBackgroundName.textContent = file.name;
+    updateDisplaySettings(payload);
+    audienceBackgroundInput.value = '';
+  });
+
+  reader.addEventListener('error', () => {
+    setDisplayStatus('이미지를 읽지 못했습니다.', 'error');
+    audienceBackgroundInput.value = '';
+  });
+
+  reader.readAsDataURL(file);
+});
+
+clearAudienceBackgroundButton.addEventListener('click', () => {
+  const payload = buildDisplaySettingsPayload({
+    audience: {
+      fontSizeVw: Number(audienceFontSizeInput.value),
+      fontColor: audienceFontColorInput.value,
+      backgroundImage: ''
+    }
+  });
+
+  audienceBackgroundName.textContent = '이미지 없음';
+  updateDisplaySettings(payload);
 });
 
 document.addEventListener('keydown', (event) => {

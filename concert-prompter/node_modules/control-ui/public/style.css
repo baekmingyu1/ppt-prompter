@@ -127,6 +127,21 @@ textarea {
   gap: 12px;
 }
 
+.split-settings {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 220px;
+  align-items: start;
+}
+
+.settings-group {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-group h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
 .settings-grid label {
   margin-bottom: 0;
 }
@@ -287,6 +302,33 @@ button.danger:hover {
   background: #b91c1c;
 }
 
+.small-button {
+  min-height: 42px;
+  padding: 10px 14px;
+  font-size: 15px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.background-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.file-name {
+  min-width: 0;
+  color: #aaa;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .lyrics-list {
   padding-left: 28px;
   margin: 0;
@@ -330,11 +372,17 @@ button.danger:hover {
 
   .buttons,
   .form-grid,
-  .settings-grid {
+  .settings-grid,
+  .split-settings {
     grid-template-columns: 1fr;
   }
 
   .editor-actions {
+    flex-direction: column;
+  }
+
+  .background-actions {
+    align-items: stretch;
     flex-direction: column;
   }
 

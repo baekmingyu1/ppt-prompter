@@ -6,13 +6,15 @@ const currentLyric = document.getElementById('currentLyric');
 const nextLyric = document.getElementById('nextLyric');
 
 function applyDisplaySettings(settings = {}) {
-  if (settings.fontSizeVw) {
-    currentLyric.style.fontSize = `${settings.fontSizeVw}vw`;
-    nextLyric.style.fontSize = `${Math.max(settings.fontSizeVw * 0.58, 2.2)}vw`;
+  const singerSettings = settings.singer || settings;
+
+  if (singerSettings.fontSizeVw) {
+    currentLyric.style.fontSize = `${singerSettings.fontSizeVw}vw`;
+    nextLyric.style.fontSize = `${Math.max(singerSettings.fontSizeVw * 0.58, 2.2)}vw`;
   }
 
-  if (settings.fontColor) {
-    currentLyric.style.color = settings.fontColor;
+  if (singerSettings.fontColor) {
+    currentLyric.style.color = singerSettings.fontColor;
   }
 }
 

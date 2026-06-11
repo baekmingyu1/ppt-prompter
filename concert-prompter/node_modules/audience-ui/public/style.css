@@ -10,6 +10,9 @@ body {
   overflow: hidden;
   font-family: Arial, "Noto Sans KR", sans-serif;
   background: #000;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   color: #fff;
 }
 

@@ -54,19 +54,47 @@
         <span id="displayStatus" class="save-status">설정 대기</span>
       </div>
 
-      <div class="settings-grid">
-        <label>
-          폰트 크기
-          <div class="range-control">
-            <input id="fontSizeInput" type="range" min="3" max="12" step="0.5" />
-            <span id="fontSizeValue">6vw</span>
-          </div>
-        </label>
+      <div class="settings-grid split-settings">
+        <div class="settings-group">
+          <h3>관객용</h3>
+          <label>
+            폰트 크기
+            <div class="range-control">
+              <input id="audienceFontSizeInput" type="range" min="3" max="12" step="0.5" />
+              <span id="audienceFontSizeValue">6vw</span>
+            </div>
+          </label>
 
-        <label>
-          폰트 색상
-          <input id="fontColorInput" type="color" />
-        </label>
+          <label>
+            폰트 색상
+            <input id="audienceFontColorInput" type="color" />
+          </label>
+
+          <label>
+            배경 이미지
+            <input id="audienceBackgroundInput" type="file" accept="image/*" />
+          </label>
+          <div class="background-actions">
+            <span id="audienceBackgroundName" class="file-name">이미지 없음</span>
+            <button id="clearAudienceBackgroundButton" type="button" class="small-button">배경 제거</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3>가수용</h3>
+          <label>
+            폰트 크기
+            <div class="range-control">
+              <input id="singerFontSizeInput" type="range" min="3" max="12" step="0.5" />
+              <span id="singerFontSizeValue">6vw</span>
+            </div>
+          </label>
+
+          <label>
+            폰트 색상
+            <input id="singerFontColorInput" type="color" />
+          </label>
+        </div>
 
         <label>
           가사 노출 기준
