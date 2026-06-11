@@ -20,7 +20,9 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  limit: '20mb'
+}));
 
 app.get('/', (req, res) => {
   res.redirect('/control/');
@@ -50,19 +52,32 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  maxHttpBufferSize: 20 * 1024 * 1024
 });
+
+const MAX_BACKGROUND_IMAGE_BYTES = 10 * 1024 * 1024;
+const DEFAULT_DISPLAY_SETTINGS = {
+  lineCount: 1,
+  audience: {
+    fontSizeVw: 6,
+    fontWeight: 800,
+    fontColor: '#ffffff',
+    backgroundImage: ''
+  },
+  singer: {
+    fontSizeVw: 6,
+    fontWeight: 900,
+    fontColor: '#ffffff'
+  }
+};
 
 let songs = [];
 let state = {
   songId: null,
   lineIndex: 0,
   blank: false,
-  displaySettings: {
-    fontSizeVw: 6,
-    fontColor: '#ffffff',
-    lineCount: 1
-  },
+  displaySettings: JSON.parse(JSON.stringify(DEFAULT_DISPLAY_SETTINGS)),
   updatedAt: new Date().toISOString()
 };
 
@@ -100,35 +115,136 @@ function getVisibleLines(lyrics, startIndex, count) {
   return lyrics.slice(startIndex, startIndex + count);
 }
 
-function normalizeDisplaySettings(settings = {}) {
+function normalizeRoleSettings(settings = {}, role) {
   const fontSizeVw = Number(settings.fontSizeVw);
-  const lineCount = Number(settings.lineCount);
+  const fontWeight = Number(settings.fontWeight);
   const fontColor = String(settings.fontColor || '').trim();
 
   if (!Number.isFinite(fontSizeVw) || fontSizeVw < 3 || fontSizeVw > 12) {
     throw new Error('폰트 크기는 3부터 12 사이여야 합니다.');
   }
 
-  if (!Number.isInteger(lineCount) || lineCount < 1 || lineCount > 4) {
-    throw new Error('노출 줄 수는 1부터 4 사이의 정수여야 합니다.');
+  if (!Number.isInteger(fontWeight) || fontWeight < 300 || fontWeight > 900 || fontWeight % 100 !== 0) {
+    throw new Error('폰트 굵기는 300부터 900 사이의 100 단위여야 합니다.');
   }
 
   if (!/^#[0-9a-fA-F]{6}$/.test(fontColor)) {
     throw new Error('폰트 색상은 #RRGGBB 형식이어야 합니다.');
   }
 
-  return {
+  const normalized = {
     fontSizeVw,
-    fontColor,
-    lineCount
+    fontWeight,
+    fontColor
+  };
+
+  if (role === 'audience') {
+    const backgroundImage = String(settings.backgroundImage || '');
+
+    if (backgroundImage && !backgroundImage.startsWith('data:image/')) {
+      throw new Error('배경 이미지는 이미지 파일만 사용할 수 있습니다.');
+    }
+
+    if (backgroundImage && getDataUrlByteLength(backgroundImage) > MAX_BACKGROUND_IMAGE_BYTES) {
+      throw new Error('배경 이미지는 10MB 이하만 사용할 수 있습니다.');
+    }
+
+    normalized.backgroundImage = backgroundImage;
+  }
+
+  return normalized;
+}
+
+function getDataUrlByteLength(dataUrl) {
+  const commaIndex = dataUrl.indexOf(',');
+
+  if (commaIndex === -1) {
+    return Buffer.byteLength(dataUrl, 'utf8');
+  }
+
+  const metadata = dataUrl.slice(0, commaIndex);
+  const body = dataUrl.slice(commaIndex + 1);
+
+  if (metadata.includes(';base64')) {
+    return Buffer.byteLength(body, 'base64');
+  }
+
+  return Buffer.byteLength(decodeURIComponent(body), 'utf8');
+}
+
+function normalizeDisplaySettings(settings = {}) {
+  const migratedSettings = {
+    ...DEFAULT_DISPLAY_SETTINGS,
+    ...settings,
+    audience: {
+      ...DEFAULT_DISPLAY_SETTINGS.audience,
+      ...(settings.audience || {})
+    },
+    singer: {
+      ...DEFAULT_DISPLAY_SETTINGS.singer,
+      ...(settings.singer || {})
+    }
+  };
+
+  if (settings.fontSizeVw !== undefined || settings.fontColor !== undefined || settings.fontWeight !== undefined) {
+    migratedSettings.audience.fontSizeVw = Number(settings.fontSizeVw ?? migratedSettings.audience.fontSizeVw);
+    migratedSettings.audience.fontWeight = Number(settings.fontWeight ?? migratedSettings.audience.fontWeight);
+    migratedSettings.audience.fontColor = String(settings.fontColor ?? migratedSettings.audience.fontColor);
+    migratedSettings.singer.fontSizeVw = Number(settings.fontSizeVw ?? migratedSettings.singer.fontSizeVw);
+    migratedSettings.singer.fontWeight = Number(settings.fontWeight ?? migratedSettings.singer.fontWeight);
+    migratedSettings.singer.fontColor = String(settings.fontColor ?? migratedSettings.singer.fontColor);
+  }
+
+  const lineCount = Number(migratedSettings.lineCount);
+
+  if (!Number.isInteger(lineCount) || lineCount < 1 || lineCount > 4) {
+    throw new Error('노출 줄 수는 1부터 4 사이의 정수여야 합니다.');
+  }
+
+  return {
+    lineCount,
+    audience: normalizeRoleSettings(migratedSettings.audience, 'audience'),
+    singer: normalizeRoleSettings(migratedSettings.singer, 'singer')
+  };
+}
+
+function buildDisplaySettingsUpdate(payload = {}) {
+  if (payload.target && payload.settings) {
+    if (!['audience', 'singer'].includes(payload.target)) {
+      throw new Error('target은 audience 또는 singer여야 합니다.');
+    }
+
+    const nextSettings = {
+      ...state.displaySettings,
+      audience: {
+        ...state.displaySettings.audience
+      },
+      singer: {
+        ...state.displaySettings.singer
+      }
+    };
+
+    if (payload.settings.lineCount !== undefined) {
+      nextSettings.lineCount = payload.settings.lineCount;
+    }
+
+    nextSettings[payload.target] = {
+      ...nextSettings[payload.target],
+      ...payload.settings
+    };
+    delete nextSettings[payload.target].lineCount;
+
+    return nextSettings;
+  }
+
+  return {
+    ...state.displaySettings,
+    ...payload
   };
 }
 
 function updateDisplaySettings(settings) {
-  state.displaySettings = normalizeDisplaySettings({
-    ...state.displaySettings,
-    ...settings
-  });
+  state.displaySettings = normalizeDisplaySettings(buildDisplaySettingsUpdate(settings));
   touchState();
 }
 
@@ -177,7 +293,10 @@ function buildAudiencePayload() {
     artist: song.artist,
     lineIndex: state.lineIndex,
     totalLines: lyrics.length,
-    displaySettings: state.displaySettings,
+    displaySettings: {
+      ...state.displaySettings.audience,
+      lineCount: state.displaySettings.lineCount
+    },
     current: currentLines[0] || '',
     currentLines
   };
@@ -197,7 +316,10 @@ function buildSingerPayload() {
     artist: song.artist,
     lineIndex: state.lineIndex,
     totalLines: lyrics.length,
-    displaySettings: state.displaySettings,
+    displaySettings: {
+      ...state.displaySettings.singer,
+      lineCount: state.displaySettings.lineCount
+    },
     current: currentLines[0] || '',
     next: nextLines[0] || '',
     currentLines,
@@ -385,6 +507,31 @@ app.post('/api/control/display-settings', (req, res) => {
     });
   }
 });
+
+app.post('/api/control/audience/background', (req, res) => {
+  try {
+    const dataUrl = String(req.body.dataUrl || '');
+
+    updateDisplaySettings({
+      target: 'audience',
+      settings: {
+        backgroundImage: dataUrl
+      }
+    });
+    emitState();
+
+    res.json({
+      ok: true,
+      state
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
 
 app.post('/api/control/song/update', async (req, res) => {
   try {

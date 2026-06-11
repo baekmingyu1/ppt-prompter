@@ -11,10 +11,29 @@ function applyDisplaySettings(settings = {}) {
   if (settings.fontColor) {
     lyric.style.color = settings.fontColor;
   }
+
+  if (settings.fontWeight) {
+    lyric.style.fontWeight = settings.fontWeight;
+  }
+}
+
+function applyBackground(settings = {}) {
+  try {
+    if (settings.backgroundImage) {
+      document.body.style.backgroundImage = `url(${settings.backgroundImage})`;
+      document.body.style.backgroundSize = 'cover';
+      document.body.style.backgroundPosition = 'center';
+    } else {
+      document.body.style.backgroundImage = '';
+    }
+  } catch (e) {
+    // ignore
+  }
 }
 
 function render(payload) {
   applyDisplaySettings(payload.displaySettings);
+  applyBackground(payload.displaySettings);
 
   if (payload.blank) {
     lyric.textContent = '';

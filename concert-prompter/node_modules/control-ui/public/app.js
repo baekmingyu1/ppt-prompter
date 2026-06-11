@@ -13,11 +13,22 @@ const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
 const lyricsList = document.getElementById('lyricsList');
-const fontSizeInput = document.getElementById('fontSizeInput');
-const fontSizeValue = document.getElementById('fontSizeValue');
-const fontColorInput = document.getElementById('fontColorInput');
+const fontSizeAudienceInput = document.getElementById('fontSizeAudienceInput');
+const fontSizeAudienceValue = document.getElementById('fontSizeAudienceValue');
+const fontWeightAudienceInput = document.getElementById('fontWeightAudienceInput');
+const fontWeightAudienceValue = document.getElementById('fontWeightAudienceValue');
+const fontColorAudienceInput = document.getElementById('fontColorAudienceInput');
+const audienceBackgroundInput = document.getElementById('audienceBackgroundInput');
+
+const fontSizeSingerInput = document.getElementById('fontSizeSingerInput');
+const fontSizeSingerValue = document.getElementById('fontSizeSingerValue');
+const fontWeightSingerInput = document.getElementById('fontWeightSingerInput');
+const fontWeightSingerValue = document.getElementById('fontWeightSingerValue');
+const fontColorSingerInput = document.getElementById('fontColorSingerInput');
 const lineCountSelect = document.getElementById('lineCountSelect');
 const displayStatus = document.getElementById('displayStatus');
+const settingsToggleButton = document.getElementById('settingsToggleButton');
+const displaySettingsBody = document.getElementById('displaySettingsBody');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
 
@@ -59,16 +70,38 @@ function renderLyricsList(payload) {
 
     lyricsList.appendChild(li);
   });
+
+  const activeLine = lyricsList.querySelector('.active');
+
+  if (activeLine) {
+    requestAnimationFrame(() => {
+      activeLine.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth'
+      });
+    });
+  }
 }
 
 function renderDisplaySettings(payload) {
-  const settings = payload.state.displaySettings;
+  const settings = payload.state.displaySettings || {};
+  const audience = settings.audience || settings;
+  const singer = settings.singer || settings;
 
   settingsRenderLocked = true;
-  fontSizeInput.value = settings.fontSizeVw;
-  fontSizeValue.textContent = `${settings.fontSizeVw}vw`;
-  fontColorInput.value = settings.fontColor;
-  lineCountSelect.value = String(settings.lineCount);
+  fontSizeAudienceInput.value = audience.fontSizeVw;
+  fontSizeAudienceValue.textContent = `${audience.fontSizeVw}vw`;
+  fontWeightAudienceInput.value = audience.fontWeight || 800;
+  fontWeightAudienceValue.textContent = String(audience.fontWeight || 800);
+  fontColorAudienceInput.value = audience.fontColor || '#ffffff';
+
+  fontSizeSingerInput.value = singer.fontSizeVw;
+  fontSizeSingerValue.textContent = `${singer.fontSizeVw}vw`;
+  fontWeightSingerInput.value = singer.fontWeight || 900;
+  fontWeightSingerValue.textContent = String(singer.fontWeight || 900);
+  fontColorSingerInput.value = singer.fontColor || '#ffffff';
+
+  lineCountSelect.value = String(settings.lineCount || audience.lineCount || singer.lineCount || 1);
   settingsRenderLocked = false;
 }
 
@@ -79,6 +112,13 @@ function setDisplayStatus(message, type = '') {
   if (type) {
     displayStatus.classList.add(type);
   }
+}
+
+function setDisplaySettingsExpanded(expanded) {
+  displaySettingsBody.hidden = !expanded;
+  displaySettingsBody.classList.toggle('collapsed', !expanded);
+  settingsToggleButton.textContent = expanded ? '접기' : '펼치기';
+  settingsToggleButton.setAttribute('aria-expanded', String(expanded));
 }
 
 function getLinesText(lines, fallback = '-') {
@@ -95,6 +135,16 @@ function getLineCounterText(payload) {
   return start === end ? `${start} / ${payload.song.totalLines}` : `${start}-${end} / ${payload.song.totalLines}`;
 }
 
+function updateCurrentLyricScrollState() {
+  requestAnimationFrame(() => {
+    const hasOverflow = currentLyric.scrollHeight > currentLyric.clientHeight + 12;
+    currentLyric.classList.toggle('is-scrollable', hasOverflow);
+    if (!hasOverflow) {
+      currentLyric.scrollTop = 0;
+    }
+  });
+}
+
 function render(payload) {
   latestState = payload;
 
@@ -107,6 +157,7 @@ function render(payload) {
 
   currentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.currentLines);
   nextLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.nextLines);
+  updateCurrentLyricScrollState();
 }
 
 socket.on('connect', () => {
@@ -157,30 +208,112 @@ blankOffButton.addEventListener('click', () => {
   });
 });
 
-[fontSizeInput, fontColorInput, lineCountSelect].forEach((element) => {
-  element.addEventListener('input', () => {
-    if (settingsRenderLocked) {
+settingsToggleButton.addEventListener('click', () => {
+  const expanded = settingsToggleButton.getAttribute('aria-expanded') === 'true';
+  setDisplaySettingsExpanded(!expanded);
+});
+
+function sendDisplaySettings(target, settings) {
+  setDisplayStatus('설정 중');
+
+  socket.emit('control:updateDisplaySettings', { target, settings }, (response) => {
+    if (!response?.ok) {
+      setDisplayStatus(response?.message || '설정 실패', 'error');
       return;
     }
 
+    setDisplayStatus('설정 적용됨', 'saved');
+  });
+}
+
+[fontSizeAudienceInput, fontWeightAudienceInput, fontColorAudienceInput].forEach((el) => {
+  el.addEventListener('input', () => {
+    if (settingsRenderLocked) return;
+
     const payload = {
-      fontSizeVw: Number(fontSizeInput.value),
-      fontColor: fontColorInput.value,
-      lineCount: Number(lineCountSelect.value)
+      fontSizeVw: Number(fontSizeAudienceInput.value),
+      fontWeight: Number(fontWeightAudienceInput.value),
+      fontColor: fontColorAudienceInput.value
     };
 
-    fontSizeValue.textContent = `${payload.fontSizeVw}vw`;
-    setDisplayStatus('설정 중');
+    fontSizeAudienceValue.textContent = `${payload.fontSizeVw}vw`;
+    fontWeightAudienceValue.textContent = String(payload.fontWeight);
+    sendDisplaySettings('audience', payload);
+  });
+});
 
-    socket.emit('control:updateDisplaySettings', payload, (response) => {
-      if (!response?.ok) {
-        setDisplayStatus(response?.message || '설정 실패', 'error');
+[fontSizeSingerInput, fontWeightSingerInput, fontColorSingerInput].forEach((el) => {
+  el.addEventListener('input', () => {
+    if (settingsRenderLocked) return;
+
+    const payload = {
+      fontSizeVw: Number(fontSizeSingerInput.value),
+      fontWeight: Number(fontWeightSingerInput.value),
+      fontColor: fontColorSingerInput.value
+    };
+
+    fontSizeSingerValue.textContent = `${payload.fontSizeVw}vw`;
+    fontWeightSingerValue.textContent = String(payload.fontWeight);
+    sendDisplaySettings('singer', payload);
+  });
+});
+
+lineCountSelect.addEventListener('input', () => {
+  if (settingsRenderLocked) return;
+
+  const payload = { lineCount: Number(lineCountSelect.value) };
+  // apply to both audience and singer
+  sendDisplaySettings('audience', payload);
+  sendDisplaySettings('singer', payload);
+});
+
+audienceBackgroundInput.addEventListener('change', async (event) => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const MAX = 10 * 1024 * 1024; // 10MB
+  if (!file.type.startsWith('image/')) {
+    alert('이미지 파일만 업로드할 수 있습니다.');
+    audienceBackgroundInput.value = '';
+    return;
+  }
+
+  if (file.size > MAX) {
+    alert('파일이 너무 큽니다. 10MB 이하만 업로드할 수 있습니다.');
+    audienceBackgroundInput.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const dataUrl = reader.result;
+
+    try {
+      const resp = await fetch(`${LYRICS_SERVICE_URL}/api/control/audience/background`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ filename: file.name, dataUrl })
+      });
+
+      const json = await resp.json();
+      if (!json.ok) {
+        alert(json.message || '업로드 실패');
+        audienceBackgroundInput.value = '';
         return;
       }
 
-      setDisplayStatus('설정 적용됨', 'saved');
-    });
-  });
+      // server will emit state; show saved
+      setDisplayStatus('배경 업로드 완료', 'saved');
+      audienceBackgroundInput.value = '';
+    } catch (err) {
+      alert('업로드 중 오류가 발생했습니다.');
+      audienceBackgroundInput.value = '';
+    }
+  };
+
+  reader.readAsDataURL(file);
 });
 
 document.addEventListener('keydown', (event) => {

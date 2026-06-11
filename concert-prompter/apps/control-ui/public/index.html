@@ -16,79 +16,132 @@
       <div id="connectionStatus" class="status">연결 대기</div>
     </header>
 
-    <section class="panel">
-      <div class="song-toolbar">
-        <label for="songSelect">곡 선택</label>
-        <a class="button-link" href="./edit.html">가사 편집</a>
-      </div>
-      <select id="songSelect"></select>
-    </section>
-
-    <section class="now-panel">
-      <div class="meta">
-        <span id="songTitle">-</span>
-        <span id="lineCounter">0 / 0</span>
-      </div>
-
-      <div class="current-box">
-        <div class="label">현재 가사</div>
-        <div id="currentLyric" class="current">-</div>
-      </div>
-
-      <div class="next-box">
-        <div class="label">다음 가사</div>
-        <div id="nextLyric" class="next">-</div>
-      </div>
-    </section>
-
-    <section class="buttons">
-      <button id="prevButton" type="button">이전 줄</button>
-      <button id="nextButton" type="button" class="primary">다음 줄</button>
-      <button id="blankOnButton" type="button" class="danger">빈 화면 ON</button>
-      <button id="blankOffButton" type="button">빈 화면 OFF</button>
-    </section>
-
-    <section class="panel">
-      <div class="section-header">
-        <h2>가사 표시 설정</h2>
-        <span id="displayStatus" class="save-status">설정 대기</span>
-      </div>
-
-      <div class="settings-grid">
-        <label>
-          폰트 크기
-          <div class="range-control">
-            <input id="fontSizeInput" type="range" min="3" max="12" step="0.5" />
-            <span id="fontSizeValue">6vw</span>
+    <div class="control-layout">
+      <div class="control-column">
+        <section class="panel">
+          <div class="song-toolbar">
+            <label for="songSelect">곡 선택</label>
+            <div class="screen-links">
+              <a class="button-link" href="./edit.html">가사 편집</a>
+              <a id="audienceLink" class="button-link" href="http://localhost:3001" target="_blank">관객용</a>
+              <a id="singerLink" class="button-link" href="http://localhost:3002" target="_blank">가수용</a>
+            </div>
           </div>
-        </label>
+          <select id="songSelect"></select>
+        </section>
 
-        <label>
-          폰트 색상
-          <input id="fontColorInput" type="color" />
-        </label>
+        <section class="now-panel">
+          <div class="meta">
+            <span id="songTitle">-</span>
+            <span id="lineCounter">0 / 0</span>
+          </div>
 
-        <label>
-          가사 노출 기준
-          <select id="lineCountSelect">
-            <option value="1">1줄씩 표시</option>
-            <option value="2">2줄씩 표시</option>
-            <option value="3">3줄씩 표시</option>
-            <option value="4">4줄씩 표시</option>
-          </select>
-        </label>
+          <div class="current-box">
+            <div class="label">현재 가사</div>
+            <div id="currentLyric" class="current">-</div>
+          </div>
+
+          <div class="next-box">
+            <div class="label">다음 가사</div>
+            <div id="nextLyric" class="next">-</div>
+          </div>
+        </section>
+
+        <section class="buttons">
+          <button id="prevButton" type="button">이전 줄</button>
+          <button id="nextButton" type="button" class="primary">다음 줄</button>
+          <button id="blankOnButton" type="button" class="danger">빈 화면 ON</button>
+          <button id="blankOffButton" type="button">빈 화면 OFF</button>
+        </section>
+
+        <section class="panel">
+          <div class="section-header">
+            <h2>가사 표시 설정</h2>
+            <div class="section-actions">
+              <span id="displayStatus" class="save-status">설정 대기</span>
+              <button id="settingsToggleButton" class="toggle-button" type="button" aria-expanded="false" aria-controls="displaySettingsBody">
+                펼치기
+              </button>
+            </div>
+          </div>
+
+          <div id="displaySettingsBody" class="settings-grid collapsed" hidden>
+            <div class="settings-column">
+              <h3>관객용 설정</h3>
+              <label>
+                폰트 크기
+                <div class="range-control">
+                  <input id="fontSizeAudienceInput" type="range" min="3" max="12" step="0.5" />
+                  <span id="fontSizeAudienceValue">6vw</span>
+                </div>
+              </label>
+
+              <label>
+                폰트 굵기
+                <div class="range-control">
+                  <input id="fontWeightAudienceInput" type="range" min="300" max="900" step="100" />
+                  <span id="fontWeightAudienceValue">800</span>
+                </div>
+              </label>
+
+              <label>
+                폰트 색상
+                <input id="fontColorAudienceInput" type="color" />
+              </label>
+
+              <label>
+                배경 이미지 (관객용)
+                <input id="audienceBackgroundInput" type="file" accept="image/*" />
+                <div class="hint">최대 10MB</div>
+              </label>
+            </div>
+
+            <div class="settings-column">
+              <h3>가수용 설정</h3>
+              <label>
+                폰트 크기
+                <div class="range-control">
+                  <input id="fontSizeSingerInput" type="range" min="3" max="12" step="0.5" />
+                  <span id="fontSizeSingerValue">6vw</span>
+                </div>
+              </label>
+
+              <label>
+                폰트 굵기
+                <div class="range-control">
+                  <input id="fontWeightSingerInput" type="range" min="300" max="900" step="100" />
+                  <span id="fontWeightSingerValue">900</span>
+                </div>
+              </label>
+
+              <label>
+                폰트 색상
+                <input id="fontColorSingerInput" type="color" />
+              </label>
+            </div>
+
+            <div class="settings-column">
+              <label>
+                가사 노출 기준
+                <select id="lineCountSelect">
+                  <option value="1">1줄씩 표시</option>
+                  <option value="2">2줄씩 표시</option>
+                  <option value="3">3줄씩 표시</option>
+                  <option value="4">4줄씩 표시</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </section>
       </div>
-    </section>
 
-    <section class="panel">
-      <h2>전체 가사</h2>
-      <ol id="lyricsList" class="lyrics-list"></ol>
-    </section>
-
-    <section class="links">
-      <a id="audienceLink" href="http://localhost:3001" target="_blank">관객용 화면 열기</a>
-      <a id="singerLink" href="http://localhost:3002" target="_blank">가수용 화면 열기</a>
-    </section>
+      <aside class="lyrics-panel panel">
+        <h2>전체 가사</h2>
+        <div class="lyrics-scroll">
+          <ol id="lyricsList" class="lyrics-list"></ol>
+        </div>
+      </aside>
+    </div>
   </main>
 
   <script src="http://localhost:4000/socket.io/socket.io.js"></script>
