@@ -4,26 +4,36 @@ const socket = io(LYRICS_SERVICE_URL);
 const lyric = document.getElementById('lyric');
 
 function applyDisplaySettings(settings = {}) {
-  const audienceSettings = settings.audience || settings;
-
-  if (audienceSettings.fontSizeVw) {
-    lyric.style.fontSize = `${audienceSettings.fontSizeVw}vw`;
+  if (settings.fontSizeVw) {
+    lyric.style.fontSize = `${settings.fontSizeVw}vw`;
   }
 
-  if (audienceSettings.fontColor) {
-    lyric.style.color = audienceSettings.fontColor;
+  if (settings.fontColor) {
+    lyric.style.color = settings.fontColor;
   }
 
-  if (audienceSettings.backgroundImage) {
-    document.body.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.42)), url("${audienceSettings.backgroundImage}")`;
-    return;
+  if (settings.fontWeight) {
+    lyric.style.fontWeight = settings.fontWeight;
   }
+}
 
-  document.body.style.backgroundImage = '';
+function applyBackground(settings = {}) {
+  try {
+    if (settings.backgroundImage) {
+      document.body.style.backgroundImage = `url(${settings.backgroundImage})`;
+      document.body.style.backgroundSize = 'cover';
+      document.body.style.backgroundPosition = 'center';
+    } else {
+      document.body.style.backgroundImage = '';
+    }
+  } catch (e) {
+    // ignore
+  }
 }
 
 function render(payload) {
   applyDisplaySettings(payload.displaySettings);
+  applyBackground(payload.displaySettings);
 
   if (payload.blank) {
     lyric.textContent = '';

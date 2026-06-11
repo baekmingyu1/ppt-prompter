@@ -13,21 +13,22 @@ const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
 const lyricsList = document.getElementById('lyricsList');
-const audienceFontSizeInput = document.getElementById('audienceFontSizeInput');
-const audienceFontSizeValue = document.getElementById('audienceFontSizeValue');
-const audienceFontColorInput = document.getElementById('audienceFontColorInput');
+const fontSizeAudienceInput = document.getElementById('fontSizeAudienceInput');
+const fontSizeAudienceValue = document.getElementById('fontSizeAudienceValue');
+const fontWeightAudienceInput = document.getElementById('fontWeightAudienceInput');
+const fontWeightAudienceValue = document.getElementById('fontWeightAudienceValue');
+const fontColorAudienceInput = document.getElementById('fontColorAudienceInput');
 const audienceBackgroundInput = document.getElementById('audienceBackgroundInput');
-const audienceBackgroundName = document.getElementById('audienceBackgroundName');
-const clearAudienceBackgroundButton = document.getElementById('clearAudienceBackgroundButton');
-const singerFontSizeInput = document.getElementById('singerFontSizeInput');
-const singerFontSizeValue = document.getElementById('singerFontSizeValue');
-const singerFontColorInput = document.getElementById('singerFontColorInput');
+
+const fontSizeSingerInput = document.getElementById('fontSizeSingerInput');
+const fontSizeSingerValue = document.getElementById('fontSizeSingerValue');
+const fontWeightSingerInput = document.getElementById('fontWeightSingerInput');
+const fontWeightSingerValue = document.getElementById('fontWeightSingerValue');
+const fontColorSingerInput = document.getElementById('fontColorSingerInput');
 const lineCountSelect = document.getElementById('lineCountSelect');
 const displayStatus = document.getElementById('displayStatus');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
-
-const MAX_BACKGROUND_IMAGE_BYTES = 10 * 1024 * 1024;
 
 let latestState = null;
 let settingsRenderLocked = false;
@@ -67,23 +68,38 @@ function renderLyricsList(payload) {
 
     lyricsList.appendChild(li);
   });
+
+  const activeLine = lyricsList.querySelector('.active');
+
+  if (activeLine) {
+    requestAnimationFrame(() => {
+      activeLine.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth'
+      });
+    });
+  }
 }
 
 function renderDisplaySettings(payload) {
-  const settings = payload.state.displaySettings;
-  const audienceSettings = settings.audience || settings;
-  const singerSettings = settings.singer || settings;
+  const settings = payload.state.displaySettings || {};
+  const audience = settings.audience || settings;
+  const singer = settings.singer || settings;
 
   settingsRenderLocked = true;
-  audienceFontSizeInput.value = audienceSettings.fontSizeVw;
-  audienceFontSizeValue.textContent = `${audienceSettings.fontSizeVw}vw`;
-  audienceFontColorInput.value = audienceSettings.fontColor;
-  audienceBackgroundName.textContent = audienceSettings.backgroundImage ? '배경 이미지 적용됨' : '이미지 없음';
-  clearAudienceBackgroundButton.disabled = !audienceSettings.backgroundImage;
-  singerFontSizeInput.value = singerSettings.fontSizeVw;
-  singerFontSizeValue.textContent = `${singerSettings.fontSizeVw}vw`;
-  singerFontColorInput.value = singerSettings.fontColor;
-  lineCountSelect.value = String(settings.lineCount);
+  fontSizeAudienceInput.value = audience.fontSizeVw;
+  fontSizeAudienceValue.textContent = `${audience.fontSizeVw}vw`;
+  fontWeightAudienceInput.value = audience.fontWeight || 800;
+  fontWeightAudienceValue.textContent = String(audience.fontWeight || 800);
+  fontColorAudienceInput.value = audience.fontColor || '#ffffff';
+
+  fontSizeSingerInput.value = singer.fontSizeVw;
+  fontSizeSingerValue.textContent = `${singer.fontSizeVw}vw`;
+  fontWeightSingerInput.value = singer.fontWeight || 900;
+  fontWeightSingerValue.textContent = String(singer.fontWeight || 900);
+  fontColorSingerInput.value = singer.fontColor || '#ffffff';
+
+  lineCountSelect.value = String(settings.lineCount || audience.lineCount || singer.lineCount || 1);
   settingsRenderLocked = false;
 }
 
@@ -172,26 +188,10 @@ blankOffButton.addEventListener('click', () => {
   });
 });
 
-function buildDisplaySettingsPayload(overrides = {}) {
-  return {
-    lineCount: Number(lineCountSelect.value),
-    audience: {
-      fontSizeVw: Number(audienceFontSizeInput.value),
-      fontColor: audienceFontColorInput.value,
-      backgroundImage: latestState?.state?.displaySettings?.audience?.backgroundImage || ''
-    },
-    singer: {
-      fontSizeVw: Number(singerFontSizeInput.value),
-      fontColor: singerFontColorInput.value
-    },
-    ...overrides
-  };
-}
-
-function updateDisplaySettings(payload) {
+function sendDisplaySettings(target, settings) {
   setDisplayStatus('설정 중');
 
-  socket.emit('control:updateDisplaySettings', payload, (response) => {
+  socket.emit('control:updateDisplaySettings', { target, settings }, (response) => {
     if (!response?.ok) {
       setDisplayStatus(response?.message || '설정 실패', 'error');
       return;
@@ -201,78 +201,94 @@ function updateDisplaySettings(payload) {
   });
 }
 
-[
-  audienceFontSizeInput,
-  audienceFontColorInput,
-  singerFontSizeInput,
-  singerFontColorInput,
-  lineCountSelect
-].forEach((element) => {
-  element.addEventListener('input', () => {
-    if (settingsRenderLocked) {
-      return;
-    }
+[fontSizeAudienceInput, fontWeightAudienceInput, fontColorAudienceInput].forEach((el) => {
+  el.addEventListener('input', () => {
+    if (settingsRenderLocked) return;
 
-    audienceFontSizeValue.textContent = `${audienceFontSizeInput.value}vw`;
-    singerFontSizeValue.textContent = `${singerFontSizeInput.value}vw`;
-    updateDisplaySettings(buildDisplaySettingsPayload());
+    const payload = {
+      fontSizeVw: Number(fontSizeAudienceInput.value),
+      fontWeight: Number(fontWeightAudienceInput.value),
+      fontColor: fontColorAudienceInput.value
+    };
+
+    fontSizeAudienceValue.textContent = `${payload.fontSizeVw}vw`;
+    fontWeightAudienceValue.textContent = String(payload.fontWeight);
+    sendDisplaySettings('audience', payload);
   });
 });
 
-audienceBackgroundInput.addEventListener('change', () => {
-  const file = audienceBackgroundInput.files?.[0];
+[fontSizeSingerInput, fontWeightSingerInput, fontColorSingerInput].forEach((el) => {
+  el.addEventListener('input', () => {
+    if (settingsRenderLocked) return;
 
-  if (!file) {
-    return;
-  }
+    const payload = {
+      fontSizeVw: Number(fontSizeSingerInput.value),
+      fontWeight: Number(fontWeightSingerInput.value),
+      fontColor: fontColorSingerInput.value
+    };
 
+    fontSizeSingerValue.textContent = `${payload.fontSizeVw}vw`;
+    fontWeightSingerValue.textContent = String(payload.fontWeight);
+    sendDisplaySettings('singer', payload);
+  });
+});
+
+lineCountSelect.addEventListener('input', () => {
+  if (settingsRenderLocked) return;
+
+  const payload = { lineCount: Number(lineCountSelect.value) };
+  // apply to both audience and singer
+  sendDisplaySettings('audience', payload);
+  sendDisplaySettings('singer', payload);
+});
+
+audienceBackgroundInput.addEventListener('change', async (event) => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const MAX = 10 * 1024 * 1024; // 10MB
   if (!file.type.startsWith('image/')) {
-    setDisplayStatus('이미지 파일만 선택할 수 있습니다.', 'error');
+    alert('이미지 파일만 업로드할 수 있습니다.');
     audienceBackgroundInput.value = '';
     return;
   }
 
-  if (file.size > MAX_BACKGROUND_IMAGE_BYTES) {
-    setDisplayStatus('배경 이미지는 10MB 이하만 가능합니다.', 'error');
+  if (file.size > MAX) {
+    alert('파일이 너무 큽니다. 10MB 이하만 업로드할 수 있습니다.');
     audienceBackgroundInput.value = '';
     return;
   }
 
   const reader = new FileReader();
+  reader.onload = async () => {
+    const dataUrl = reader.result;
 
-  reader.addEventListener('load', () => {
-    const payload = buildDisplaySettingsPayload({
-      audience: {
-        fontSizeVw: Number(audienceFontSizeInput.value),
-        fontColor: audienceFontColorInput.value,
-        backgroundImage: reader.result
+    try {
+      const resp = await fetch(`${LYRICS_SERVICE_URL}/api/control/audience/background`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ filename: file.name, dataUrl })
+      });
+
+      const json = await resp.json();
+      if (!json.ok) {
+        alert(json.message || '업로드 실패');
+        audienceBackgroundInput.value = '';
+        return;
       }
-    });
 
-    audienceBackgroundName.textContent = file.name;
-    updateDisplaySettings(payload);
-    audienceBackgroundInput.value = '';
-  });
-
-  reader.addEventListener('error', () => {
-    setDisplayStatus('이미지를 읽지 못했습니다.', 'error');
-    audienceBackgroundInput.value = '';
-  });
+      // server will emit state; show saved
+      setDisplayStatus('배경 업로드 완료', 'saved');
+      audienceBackgroundInput.value = '';
+    } catch (err) {
+      alert('업로드 중 오류가 발생했습니다.');
+      audienceBackgroundInput.value = '';
+    }
+  };
 
   reader.readAsDataURL(file);
-});
-
-clearAudienceBackgroundButton.addEventListener('click', () => {
-  const payload = buildDisplaySettingsPayload({
-    audience: {
-      fontSizeVw: Number(audienceFontSizeInput.value),
-      fontColor: audienceFontColorInput.value,
-      backgroundImage: ''
-    }
-  });
-
-  audienceBackgroundName.textContent = '이미지 없음';
-  updateDisplaySettings(payload);
 });
 
 document.addEventListener('keydown', (event) => {

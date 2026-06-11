@@ -16,6 +16,11 @@ function applyDisplaySettings(settings = {}) {
   if (singerSettings.fontColor) {
     currentLyric.style.color = singerSettings.fontColor;
   }
+
+  if (singerSettings.fontWeight) {
+    currentLyric.style.fontWeight = singerSettings.fontWeight;
+    nextLyric.style.fontWeight = Math.max(singerSettings.fontWeight - 200, 300);
+  }
 }
 
 function render(payload) {
