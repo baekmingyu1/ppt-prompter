@@ -13,8 +13,14 @@ const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
 const lyricsList = document.getElementById('lyricsList');
+const fontSizeInput = document.getElementById('fontSizeInput');
+const fontSizeValue = document.getElementById('fontSizeValue');
+const fontColorInput = document.getElementById('fontColorInput');
+const lineCountSelect = document.getElementById('lineCountSelect');
+const displayStatus = document.getElementById('displayStatus');
 
 let latestState = null;
+let settingsRenderLocked = false;
 
 function renderSongs(payload) {
   songSelect.innerHTML = '';
@@ -36,7 +42,10 @@ function renderLyricsList(payload) {
     const li = document.createElement('li');
     li.textContent = line || '(빈 줄)';
 
-    if (index === payload.state.lineIndex) {
+    const firstVisibleIndex = payload.state.lineIndex;
+    const lastVisibleIndex = firstVisibleIndex + payload.state.displaySettings.lineCount - 1;
+
+    if (index >= firstVisibleIndex && index <= lastVisibleIndex) {
       li.classList.add('active');
     }
 
@@ -50,17 +59,52 @@ function renderLyricsList(payload) {
   });
 }
 
+function renderDisplaySettings(payload) {
+  const settings = payload.state.displaySettings;
+
+  settingsRenderLocked = true;
+  fontSizeInput.value = settings.fontSizeVw;
+  fontSizeValue.textContent = `${settings.fontSizeVw}vw`;
+  fontColorInput.value = settings.fontColor;
+  lineCountSelect.value = String(settings.lineCount);
+  settingsRenderLocked = false;
+}
+
+function setDisplayStatus(message, type = '') {
+  displayStatus.textContent = message;
+  displayStatus.classList.remove('saved', 'error');
+
+  if (type) {
+    displayStatus.classList.add(type);
+  }
+}
+
+function getLinesText(lines, fallback = '-') {
+  return lines?.length ? lines.join('\n') : fallback;
+}
+
+function getLineCounterText(payload) {
+  const start = payload.state.lineIndex + 1;
+  const end = Math.min(
+    payload.state.lineIndex + payload.state.displaySettings.lineCount,
+    payload.song.totalLines
+  );
+
+  return start === end ? `${start} / ${payload.song.totalLines}` : `${start}-${end} / ${payload.song.totalLines}`;
+}
+
 function render(payload) {
   latestState = payload;
 
   renderSongs(payload);
   renderLyricsList(payload);
+  renderDisplaySettings(payload);
 
   songTitle.textContent = `${payload.song.title} - ${payload.song.artist || ''}`;
-  lineCounter.textContent = `${payload.state.lineIndex + 1} / ${payload.song.totalLines}`;
+  lineCounter.textContent = getLineCounterText(payload);
 
-  currentLyric.textContent = payload.state.blank ? '(빈 화면)' : payload.current || '-';
-  nextLyric.textContent = payload.state.blank ? '(빈 화면)' : payload.next || '-';
+  currentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.currentLines);
+  nextLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.nextLines);
 }
 
 socket.on('connect', () => {
@@ -108,6 +152,32 @@ blankOnButton.addEventListener('click', () => {
 blankOffButton.addEventListener('click', () => {
   socket.emit('control:blank', {
     blank: false
+  });
+});
+
+[fontSizeInput, fontColorInput, lineCountSelect].forEach((element) => {
+  element.addEventListener('input', () => {
+    if (settingsRenderLocked) {
+      return;
+    }
+
+    const payload = {
+      fontSizeVw: Number(fontSizeInput.value),
+      fontColor: fontColorInput.value,
+      lineCount: Number(lineCountSelect.value)
+    };
+
+    fontSizeValue.textContent = `${payload.fontSizeVw}vw`;
+    setDisplayStatus('설정 중');
+
+    socket.emit('control:updateDisplaySettings', payload, (response) => {
+      if (!response?.ok) {
+        setDisplayStatus(response?.message || '설정 실패', 'error');
+        return;
+      }
+
+      setDisplayStatus('설정 적용됨', 'saved');
+    });
   });
 });
 

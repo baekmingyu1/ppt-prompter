@@ -30,6 +30,11 @@ let state = {
   songId: null,
   lineIndex: 0,
   blank: false,
+  displaySettings: {
+    fontSizeVw: 6,
+    fontColor: '#ffffff',
+    lineCount: 1
+  },
   updatedAt: new Date().toISOString()
 };
 
@@ -63,11 +68,50 @@ function touchState() {
   state.updatedAt = new Date().toISOString();
 }
 
+function getVisibleLines(lyrics, startIndex, count) {
+  return lyrics.slice(startIndex, startIndex + count);
+}
+
+function normalizeDisplaySettings(settings = {}) {
+  const fontSizeVw = Number(settings.fontSizeVw);
+  const lineCount = Number(settings.lineCount);
+  const fontColor = String(settings.fontColor || '').trim();
+
+  if (!Number.isFinite(fontSizeVw) || fontSizeVw < 3 || fontSizeVw > 12) {
+    throw new Error('폰트 크기는 3부터 12 사이여야 합니다.');
+  }
+
+  if (!Number.isInteger(lineCount) || lineCount < 1 || lineCount > 4) {
+    throw new Error('노출 줄 수는 1부터 4 사이의 정수여야 합니다.');
+  }
+
+  if (!/^#[0-9a-fA-F]{6}$/.test(fontColor)) {
+    throw new Error('폰트 색상은 #RRGGBB 형식이어야 합니다.');
+  }
+
+  return {
+    fontSizeVw,
+    fontColor,
+    lineCount
+  };
+}
+
+function updateDisplaySettings(settings) {
+  state.displaySettings = normalizeDisplaySettings({
+    ...state.displaySettings,
+    ...settings
+  });
+  touchState();
+}
+
 function buildControlPayload() {
   const song = getCurrentSong();
   const lyrics = song.lyrics || [];
+  const lineCount = state.displaySettings.lineCount;
+  const currentLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex, lineCount);
+  const nextLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex + lineCount, lineCount);
   const current = state.blank ? '' : lyrics[state.lineIndex] || '';
-  const next = state.blank ? '' : lyrics[state.lineIndex + 1] || '';
+  const next = nextLines[0] || '';
 
   return {
     role: 'control',
@@ -86,6 +130,8 @@ function buildControlPayload() {
     },
     current,
     next,
+    currentLines,
+    nextLines,
     lyrics
   };
 }
@@ -93,6 +139,8 @@ function buildControlPayload() {
 function buildAudiencePayload() {
   const song = getCurrentSong();
   const lyrics = song.lyrics || [];
+  const lineCount = state.displaySettings.lineCount;
+  const currentLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex, lineCount);
 
   return {
     role: 'audience',
@@ -101,13 +149,18 @@ function buildAudiencePayload() {
     artist: song.artist,
     lineIndex: state.lineIndex,
     totalLines: lyrics.length,
-    current: state.blank ? '' : lyrics[state.lineIndex] || ''
+    displaySettings: state.displaySettings,
+    current: currentLines[0] || '',
+    currentLines
   };
 }
 
 function buildSingerPayload() {
   const song = getCurrentSong();
   const lyrics = song.lyrics || [];
+  const lineCount = state.displaySettings.lineCount;
+  const currentLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex, lineCount);
+  const nextLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex + lineCount, lineCount);
 
   return {
     role: 'singer',
@@ -116,8 +169,11 @@ function buildSingerPayload() {
     artist: song.artist,
     lineIndex: state.lineIndex,
     totalLines: lyrics.length,
-    current: state.blank ? '' : lyrics[state.lineIndex] || '',
-    next: state.blank ? '' : lyrics[state.lineIndex + 1] || ''
+    displaySettings: state.displaySettings,
+    current: currentLines[0] || '',
+    next: nextLines[0] || '',
+    currentLines,
+    nextLines
   };
 }
 
@@ -142,7 +198,7 @@ function setSong(songId) {
 
 function moveLine(delta) {
   const song = getCurrentSong();
-  state.lineIndex = clampLineIndex(state.lineIndex + delta, song);
+  state.lineIndex = clampLineIndex(state.lineIndex + delta * state.displaySettings.lineCount, song);
   state.blank = false;
   touchState();
 }
@@ -285,6 +341,23 @@ app.post('/api/control/blank', (req, res) => {
   });
 });
 
+app.post('/api/control/display-settings', (req, res) => {
+  try {
+    updateDisplaySettings(req.body);
+    emitState();
+
+    res.json({
+      ok: true,
+      state
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
 app.post('/api/control/song/update', async (req, res) => {
   try {
     await updateSong(req.body);
@@ -366,6 +439,31 @@ io.on('connection', (socket) => {
   socket.on('control:blank', ({ blank }) => {
     toggleBlank(blank);
     emitState();
+  });
+
+  socket.on('control:updateDisplaySettings', (payload, callback) => {
+    try {
+      updateDisplaySettings(payload);
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
   });
 
   socket.on('control:updateSong', async (payload, callback) => {
