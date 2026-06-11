@@ -402,6 +402,8 @@ button:disabled {
 }
 
 .lyrics-panel {
+  display: flex;
+  flex-direction: column;
   position: sticky;
   top: 24px;
   max-height: calc(90vh - 48px);
@@ -409,13 +411,50 @@ button:disabled {
 }
 
 .lyrics-panel h2 {
+  flex: 0 0 auto;
   margin-top: 0;
 }
 
-.lyrics-panel .lyrics-list {
-  max-height: calc(100vh - 132px);
+.lyrics-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 8px;
+}
+
+.lyrics-scroll,
+.current.is-scrollable,
+.next {
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent;
+}
+
+.lyrics-scroll::-webkit-scrollbar,
+.current.is-scrollable::-webkit-scrollbar,
+.next::-webkit-scrollbar {
+  width: 8px;
+}
+
+.lyrics-scroll::-webkit-scrollbar-track,
+.current.is-scrollable::-webkit-scrollbar-track,
+.next::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lyrics-scroll::-webkit-scrollbar-thumb,
+.current.is-scrollable::-webkit-scrollbar-thumb,
+.next::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #555;
+  background-clip: padding-box;
+}
+
+.lyrics-scroll::-webkit-scrollbar-thumb:hover,
+.current.is-scrollable::-webkit-scrollbar-thumb:hover,
+.next::-webkit-scrollbar-thumb:hover {
+  background: #777;
+  background-clip: padding-box;
 }
 
 .lyrics-list li {
@@ -503,7 +542,7 @@ button:disabled {
     overflow: visible;
   }
 
-  .lyrics-panel .lyrics-list {
+  .lyrics-scroll {
     max-height: none;
     overflow: visible;
   }
