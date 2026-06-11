@@ -21,7 +21,11 @@
         <section class="panel">
           <div class="song-toolbar">
             <label for="songSelect">곡 선택</label>
-            <a class="button-link" href="./edit.html">가사 편집</a>
+            <div class="screen-links">
+              <a class="button-link" href="./edit.html">가사 편집</a>
+              <a id="audienceLink" class="button-link" href="http://localhost:3001" target="_blank">관객용</a>
+              <a id="singerLink" class="button-link" href="http://localhost:3002" target="_blank">가수용</a>
+            </div>
           </div>
           <select id="songSelect"></select>
         </section>
@@ -53,10 +57,15 @@
         <section class="panel">
           <div class="section-header">
             <h2>가사 표시 설정</h2>
-            <span id="displayStatus" class="save-status">설정 대기</span>
+            <div class="section-actions">
+              <span id="displayStatus" class="save-status">설정 대기</span>
+              <button id="settingsToggleButton" class="toggle-button" type="button" aria-expanded="false" aria-controls="displaySettingsBody">
+                펼치기
+              </button>
+            </div>
           </div>
 
-          <div class="settings-grid">
+          <div id="displaySettingsBody" class="settings-grid collapsed" hidden>
             <div class="settings-column">
               <h3>관객용 설정</h3>
               <label>
@@ -123,11 +132,6 @@
               </label>
             </div>
           </div>
-        </section>
-
-        <section class="links">
-          <a id="audienceLink" href="http://localhost:3001" target="_blank">관객용 화면 열기</a>
-          <a id="singerLink" href="http://localhost:3002" target="_blank">가수용 화면 열기</a>
         </section>
       </div>
 

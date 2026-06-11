@@ -27,6 +27,8 @@ const fontWeightSingerValue = document.getElementById('fontWeightSingerValue');
 const fontColorSingerInput = document.getElementById('fontColorSingerInput');
 const lineCountSelect = document.getElementById('lineCountSelect');
 const displayStatus = document.getElementById('displayStatus');
+const settingsToggleButton = document.getElementById('settingsToggleButton');
+const displaySettingsBody = document.getElementById('displaySettingsBody');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
 
@@ -112,6 +114,13 @@ function setDisplayStatus(message, type = '') {
   }
 }
 
+function setDisplaySettingsExpanded(expanded) {
+  displaySettingsBody.hidden = !expanded;
+  displaySettingsBody.classList.toggle('collapsed', !expanded);
+  settingsToggleButton.textContent = expanded ? '접기' : '펼치기';
+  settingsToggleButton.setAttribute('aria-expanded', String(expanded));
+}
+
 function getLinesText(lines, fallback = '-') {
   return lines?.length ? lines.join('\n') : fallback;
 }
@@ -126,6 +135,16 @@ function getLineCounterText(payload) {
   return start === end ? `${start} / ${payload.song.totalLines}` : `${start}-${end} / ${payload.song.totalLines}`;
 }
 
+function updateCurrentLyricScrollState() {
+  requestAnimationFrame(() => {
+    const hasOverflow = currentLyric.scrollHeight > currentLyric.clientHeight + 12;
+    currentLyric.classList.toggle('is-scrollable', hasOverflow);
+    if (!hasOverflow) {
+      currentLyric.scrollTop = 0;
+    }
+  });
+}
+
 function render(payload) {
   latestState = payload;
 
@@ -138,6 +157,7 @@ function render(payload) {
 
   currentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.currentLines);
   nextLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.nextLines);
+  updateCurrentLyricScrollState();
 }
 
 socket.on('connect', () => {
@@ -186,6 +206,11 @@ blankOffButton.addEventListener('click', () => {
   socket.emit('control:blank', {
     blank: false
   });
+});
+
+settingsToggleButton.addEventListener('click', () => {
+  const expanded = settingsToggleButton.getAttribute('aria-expanded') === 'true';
+  setDisplaySettingsExpanded(!expanded);
 });
 
 function sendDisplaySettings(target, settings) {
