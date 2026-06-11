@@ -7,6 +7,7 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const distRoot = path.join(projectRoot, 'dist');
 const prompterRoot = path.join(distRoot, 'prompter');
+const nestedPrompterRoot = path.join(prompterRoot, 'prompter');
 
 const backendUrl = process.env.PROMPTER_BACKEND_URL || '';
 const socketPath = process.env.PROMPTER_SOCKET_PATH || '/prompter/socket.io';
@@ -45,13 +46,19 @@ await fs.rm(distRoot, {
   force: true
 });
 
-await copyPublic(path.join(projectRoot, 'apps', 'control-ui', 'public'), prompterRoot);
-await copyPublic(path.join(projectRoot, 'apps', 'audience-ui', 'public'), path.join(prompterRoot, 'audience'));
-await copyPublic(path.join(projectRoot, 'apps', 'singer-ui', 'public'), path.join(prompterRoot, 'singer'));
+async function buildSite(targetRoot) {
+  await copyPublic(path.join(projectRoot, 'apps', 'control-ui', 'public'), targetRoot);
+  await copyPublic(path.join(projectRoot, 'apps', 'audience-ui', 'public'), path.join(targetRoot, 'audience'));
+  await copyPublic(path.join(projectRoot, 'apps', 'singer-ui', 'public'), path.join(targetRoot, 'singer'));
 
-await writeConfig(prompterRoot);
-await writeConfig(path.join(prompterRoot, 'audience'));
-await writeConfig(path.join(prompterRoot, 'singer'));
+  await writeConfig(targetRoot);
+  await writeConfig(path.join(targetRoot, 'audience'));
+  await writeConfig(path.join(targetRoot, 'singer'));
+}
+
+await buildSite(distRoot);
+await buildSite(prompterRoot);
+await buildSite(nestedPrompterRoot);
 await writeRedirects();
 
-console.log(`Built Pages output: ${path.relative(projectRoot, prompterRoot)}`);
+console.log(`Built Pages output: ${path.relative(projectRoot, distRoot)}`);
