@@ -1,4 +1,4 @@
-const LYRICS_SERVICE_URL = 'http://localhost:4000';
+const LYRICS_SERVICE_URL = window.location.port === '4000' ? window.location.origin : 'http://localhost:4000';
 
 const socket = io(LYRICS_SERVICE_URL);
 

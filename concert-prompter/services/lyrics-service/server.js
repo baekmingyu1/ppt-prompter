@@ -11,12 +11,40 @@ const PORT = Number(process.env.PORT || 4000);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SONGS_PATH = path.join(__dirname, 'data', 'songs.json');
+const PROJECT_ROOT = path.resolve(__dirname, '../..');
+const CONTROL_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'control-ui', 'public');
+const AUDIENCE_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'audience-ui', 'public');
+const SINGER_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'singer-ui', 'public');
 
 const app = express();
 const server = http.createServer(app);
 
 app.use(cors());
 app.use(express.json());
+
+app.get('/', (req, res) => {
+  res.redirect('/control/');
+});
+
+app.use('/control', express.static(CONTROL_UI_PATH));
+app.use('/audience', express.static(AUDIENCE_UI_PATH));
+app.use('/singer', express.static(SINGER_UI_PATH));
+
+app.get('/control', (req, res) => {
+  res.redirect('/control/');
+});
+
+app.get('/audience', (req, res) => {
+  res.redirect('/audience/');
+});
+
+app.get('/singer', (req, res) => {
+  res.redirect('/singer/');
+});
+
+app.get('/control/edit', (req, res) => {
+  res.sendFile(path.join(CONTROL_UI_PATH, 'edit.html'));
+});
 
 const io = new Server(server, {
   cors: {

@@ -1,4 +1,4 @@
-const LYRICS_SERVICE_URL = 'http://localhost:4000';
+const LYRICS_SERVICE_URL = window.location.port === '4000' ? window.location.origin : 'http://localhost:4000';
 
 const socket = io(LYRICS_SERVICE_URL);
 
@@ -18,9 +18,16 @@ const fontSizeValue = document.getElementById('fontSizeValue');
 const fontColorInput = document.getElementById('fontColorInput');
 const lineCountSelect = document.getElementById('lineCountSelect');
 const displayStatus = document.getElementById('displayStatus');
+const audienceLink = document.getElementById('audienceLink');
+const singerLink = document.getElementById('singerLink');
 
 let latestState = null;
 let settingsRenderLocked = false;
+
+if (window.location.port === '4000') {
+  audienceLink.href = `${window.location.origin}/audience/`;
+  singerLink.href = `${window.location.origin}/singer/`;
+}
 
 function renderSongs(payload) {
   songSelect.innerHTML = '';

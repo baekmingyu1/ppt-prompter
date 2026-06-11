@@ -86,12 +86,20 @@
     </section>
 
     <section class="links">
-      <a href="http://localhost:3001" target="_blank">관객용 화면 열기</a>
-      <a href="http://localhost:3002" target="_blank">가수용 화면 열기</a>
+      <a id="audienceLink" href="http://localhost:3001" target="_blank">관객용 화면 열기</a>
+      <a id="singerLink" href="http://localhost:3002" target="_blank">가수용 화면 열기</a>
     </section>
   </main>
 
-  <script src="http://localhost:4000/socket.io/socket.io.js"></script>
-  <script src="./app.js"></script>
+  <script>
+    const socketScript = document.createElement('script');
+    socketScript.src = window.location.port === '4000' ? '/socket.io/socket.io.js' : 'http://localhost:4000/socket.io/socket.io.js';
+    socketScript.onload = () => {
+      const appScript = document.createElement('script');
+      appScript.src = './app.js';
+      document.body.appendChild(appScript);
+    };
+    document.body.appendChild(socketScript);
+  </script>
 </body>
 </html>
