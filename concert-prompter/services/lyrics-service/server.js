@@ -15,6 +15,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const CONTROL_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'control-ui', 'public');
 const AUDIENCE_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'audience-ui', 'public');
 const SINGER_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'singer-ui', 'public');
+const BASE_PATH = process.env.BASE_PATH || '/prompter';
 
 const app = express();
 const server = http.createServer(app);
@@ -26,9 +27,17 @@ app.get('/', (req, res) => {
   res.redirect('/control/');
 });
 
+app.get(BASE_PATH, (req, res) => {
+  res.sendFile(path.join(CONTROL_UI_PATH, 'index.html'));
+});
+
 app.use('/control', express.static(CONTROL_UI_PATH));
 app.use('/audience', express.static(AUDIENCE_UI_PATH));
 app.use('/singer', express.static(SINGER_UI_PATH));
+app.use(BASE_PATH, express.static(CONTROL_UI_PATH));
+app.use(`${BASE_PATH}/control`, express.static(CONTROL_UI_PATH));
+app.use(`${BASE_PATH}/audience`, express.static(AUDIENCE_UI_PATH));
+app.use(`${BASE_PATH}/singer`, express.static(SINGER_UI_PATH));
 
 app.get('/control', (req, res) => {
   res.redirect('/control/');
@@ -46,12 +55,35 @@ app.get('/control/edit', (req, res) => {
   res.sendFile(path.join(CONTROL_UI_PATH, 'edit.html'));
 });
 
-const io = new Server(server, {
+app.get(`${BASE_PATH}/control`, (req, res) => {
+  res.redirect(`${BASE_PATH}/control/`);
+});
+
+app.get(`${BASE_PATH}/audience`, (req, res) => {
+  res.redirect(`${BASE_PATH}/audience/`);
+});
+
+app.get(`${BASE_PATH}/singer`, (req, res) => {
+  res.redirect(`${BASE_PATH}/singer/`);
+});
+
+app.get(`${BASE_PATH}/control/edit`, (req, res) => {
+  res.sendFile(path.join(CONTROL_UI_PATH, 'edit.html'));
+});
+
+const socketOptions = {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
   }
+};
+
+const io = new Server(server, socketOptions);
+const basePathIo = new Server(server, {
+  ...socketOptions,
+  path: `${BASE_PATH}/socket.io`
 });
+const socketServers = [io, basePathIo];
 
 let songs = [];
 let state = {
@@ -206,9 +238,11 @@ function buildSingerPayload() {
 }
 
 function emitState() {
-  io.to('control').emit('state', buildControlPayload());
-  io.to('audience').emit('state', buildAudiencePayload());
-  io.to('singer').emit('state', buildSingerPayload());
+  socketServers.forEach((socketServer) => {
+    socketServer.to('control').emit('state', buildControlPayload());
+    socketServer.to('audience').emit('state', buildAudiencePayload());
+    socketServer.to('singer').emit('state', buildSingerPayload());
+  });
 }
 
 function setSong(songId) {
@@ -403,7 +437,8 @@ app.post('/api/control/song/update', async (req, res) => {
   }
 });
 
-io.on('connection', (socket) => {
+function attachSocketHandlers(socketServer) {
+  socketServer.on('connection', (socket) => {
   socket.on('join', (payload = {}) => {
     const role = payload.role;
 
@@ -518,7 +553,10 @@ io.on('connection', (socket) => {
       });
     }
   });
-});
+  });
+}
+
+socketServers.forEach(attachSocketHandlers);
 
 await loadSongs();
 

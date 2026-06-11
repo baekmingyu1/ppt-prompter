@@ -1,6 +1,18 @@
-const LYRICS_SERVICE_URL = window.location.port === '4000' ? window.location.origin : 'http://localhost:4000';
+function isLocalDev() {
+  return ['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port !== '4000';
+}
 
-const socket = io(LYRICS_SERVICE_URL);
+function getBasePath() {
+  const segments = window.location.pathname.split('/').filter(Boolean);
+  return segments[0] === 'prompter' ? '/prompter' : '';
+}
+
+const BASE_PATH = getBasePath();
+const LYRICS_SERVICE_URL = isLocalDev() ? 'http://localhost:4000' : window.location.origin;
+
+const socket = io(LYRICS_SERVICE_URL, {
+  path: `${BASE_PATH}/socket.io`
+});
 
 const currentLyric = document.getElementById('currentLyric');
 const nextLyric = document.getElementById('nextLyric');

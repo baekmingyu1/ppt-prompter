@@ -1,6 +1,18 @@
-const LYRICS_SERVICE_URL = window.location.port === '4000' ? window.location.origin : 'http://localhost:4000';
+function isLocalDev() {
+  return ['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port !== '4000';
+}
 
-const socket = io(LYRICS_SERVICE_URL);
+function getBasePath() {
+  const segments = window.location.pathname.split('/').filter(Boolean);
+  return segments[0] === 'prompter' ? '/prompter' : '';
+}
+
+const BASE_PATH = getBasePath();
+const LYRICS_SERVICE_URL = isLocalDev() ? 'http://localhost:4000' : window.location.origin;
+
+const socket = io(LYRICS_SERVICE_URL, {
+  path: `${BASE_PATH}/socket.io`
+});
 
 const connectionStatus = document.getElementById('connectionStatus');
 const songSelect = document.getElementById('songSelect');
@@ -24,9 +36,9 @@ const singerLink = document.getElementById('singerLink');
 let latestState = null;
 let settingsRenderLocked = false;
 
-if (window.location.port === '4000') {
-  audienceLink.href = `${window.location.origin}/audience/`;
-  singerLink.href = `${window.location.origin}/singer/`;
+if (!isLocalDev()) {
+  audienceLink.href = `${window.location.origin}${BASE_PATH}/audience/`;
+  singerLink.href = `${window.location.origin}${BASE_PATH}/singer/`;
 }
 
 function renderSongs(payload) {
