@@ -1,19 +1,6 @@
-function isLocalDev() {
-  return ['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port !== '4000';
-}
+const LYRICS_SERVICE_URL = 'http://localhost:4000';
 
-function getBasePath() {
-  const segments = window.location.pathname.split('/').filter(Boolean);
-  return segments[0] === 'prompter' ? '/prompter' : '';
-}
-
-const BASE_PATH = getBasePath();
-const CONFIG = window.PROMPTER_CONFIG || {};
-const LYRICS_SERVICE_URL = isLocalDev() ? 'http://localhost:4000' : CONFIG.backendUrl || window.location.origin;
-
-const socket = io(LYRICS_SERVICE_URL, {
-  path: CONFIG.socketPath || `${BASE_PATH}/socket.io`
-});
+const socket = io(LYRICS_SERVICE_URL);
 const lyric = document.getElementById('lyric');
 
 function applyDisplaySettings(settings = {}) {
