@@ -1,6 +1,9 @@
-const LYRICS_SERVICE_URL = 'http://localhost:4000';
+const PROMPTER_CONFIG = window.__PROMPTER_CONFIG__ || {};
+const LYRICS_SERVICE_URL = PROMPTER_CONFIG.lyricsServiceUrl || '';
+const MAX_BACKGROUND_IMAGE_MB = Number(PROMPTER_CONFIG.maxBackgroundImageMb || 10);
+const MAX_BACKGROUND_IMAGE_BYTES = MAX_BACKGROUND_IMAGE_MB * 1024 * 1024;
 
-const socket = io(LYRICS_SERVICE_URL);
+const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 
 const connectionStatus = document.getElementById('connectionStatus');
 const songSelect = document.getElementById('songSelect');
@@ -19,6 +22,7 @@ const fontWeightAudienceInput = document.getElementById('fontWeightAudienceInput
 const fontWeightAudienceValue = document.getElementById('fontWeightAudienceValue');
 const fontColorAudienceInput = document.getElementById('fontColorAudienceInput');
 const audienceBackgroundInput = document.getElementById('audienceBackgroundInput');
+const audienceBackgroundHint = document.getElementById('audienceBackgroundHint');
 
 const fontSizeSingerInput = document.getElementById('fontSizeSingerInput');
 const fontSizeSingerValue = document.getElementById('fontSizeSingerValue');
@@ -31,6 +35,18 @@ const settingsToggleButton = document.getElementById('settingsToggleButton');
 const displaySettingsBody = document.getElementById('displaySettingsBody');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
+
+if (audienceLink) {
+  audienceLink.href = PROMPTER_CONFIG.audienceUrl || `${LYRICS_SERVICE_URL}/audience/`;
+}
+
+if (singerLink) {
+  singerLink.href = PROMPTER_CONFIG.singerUrl || `${LYRICS_SERVICE_URL}/singer/`;
+}
+
+if (audienceBackgroundHint) {
+  audienceBackgroundHint.textContent = `최대 ${MAX_BACKGROUND_IMAGE_MB}MB`;
+}
 
 let latestState = null;
 let settingsRenderLocked = false;
@@ -271,15 +287,14 @@ audienceBackgroundInput.addEventListener('change', async (event) => {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
 
-  const MAX = 10 * 1024 * 1024; // 10MB
   if (!file.type.startsWith('image/')) {
     alert('이미지 파일만 업로드할 수 있습니다.');
     audienceBackgroundInput.value = '';
     return;
   }
 
-  if (file.size > MAX) {
-    alert('파일이 너무 큽니다. 10MB 이하만 업로드할 수 있습니다.');
+  if (file.size > MAX_BACKGROUND_IMAGE_BYTES) {
+    alert(`파일이 너무 큽니다. ${MAX_BACKGROUND_IMAGE_MB}MB 이하만 업로드할 수 있습니다.`);
     audienceBackgroundInput.value = '';
     return;
   }

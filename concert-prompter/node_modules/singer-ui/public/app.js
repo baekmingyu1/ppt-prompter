@@ -1,6 +1,7 @@
-const LYRICS_SERVICE_URL = 'http://localhost:4000';
+const PROMPTER_CONFIG = window.__PROMPTER_CONFIG__ || {};
+const LYRICS_SERVICE_URL = PROMPTER_CONFIG.lyricsServiceUrl || '';
 
-const socket = io(LYRICS_SERVICE_URL);
+const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 
 const currentLyric = document.getElementById('currentLyric');
 const nextLyric = document.getElementById('nextLyric');

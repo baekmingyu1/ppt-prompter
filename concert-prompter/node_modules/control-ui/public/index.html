@@ -23,8 +23,8 @@
             <label for="songSelect">곡 선택</label>
             <div class="screen-links">
               <a class="button-link" href="./edit.html">가사 편집</a>
-              <a id="audienceLink" class="button-link" href="http://localhost:3001" target="_blank">관객용</a>
-              <a id="singerLink" class="button-link" href="http://localhost:3002" target="_blank">가수용</a>
+              <a id="audienceLink" class="button-link" href="/audience/" target="_blank">관객용</a>
+              <a id="singerLink" class="button-link" href="/singer/" target="_blank">가수용</a>
             </div>
           </div>
           <select id="songSelect"></select>
@@ -92,7 +92,7 @@
               <label>
                 배경 이미지 (관객용)
                 <input id="audienceBackgroundInput" type="file" accept="image/*" />
-                <div class="hint">최대 10MB</div>
+                <div id="audienceBackgroundHint" class="hint">최대 용량 확인 중</div>
               </label>
             </div>
 
@@ -144,7 +144,10 @@
     </div>
   </main>
 
-  <script src="http://localhost:4000/socket.io/socket.io.js"></script>
+  <script src="/config.js"></script>
+  <script>
+    document.write(`<script src="${window.__PROMPTER_CONFIG__?.lyricsServiceUrl || ''}/socket.io/socket.io.js"><\/script>`);
+  </script>
   <script src="./app.js"></script>
 </body>
 </html>

@@ -11,7 +11,10 @@
     <div id="lyric" class="lyric"></div>
   </main>
 
-  <script src="http://localhost:4000/socket.io/socket.io.js"></script>
+  <script src="/config.js"></script>
+  <script>
+    document.write(`<script src="${window.__PROMPTER_CONFIG__?.lyricsServiceUrl || ''}/socket.io/socket.io.js"><\/script>`);
+  </script>
   <script src="./app.js"></script>
 </body>
 </html>
