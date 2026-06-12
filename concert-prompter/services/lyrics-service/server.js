@@ -5,24 +5,50 @@ import { Server } from 'socket.io';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import '../../config/load-env.js';
+
+function getPositiveNumberEnv(key, fallback) {
+  const value = Number(process.env[key]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
 
 const PORT = Number(process.env.PORT || 4000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const SONGS_PATH = path.join(__dirname, 'data', 'songs.json');
+const SONGS_PATH = process.env.SONGS_PATH || path.join(__dirname, 'data', 'songs.json');
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const CONTROL_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'control-ui', 'public');
 const AUDIENCE_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'audience-ui', 'public');
 const SINGER_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'singer-ui', 'public');
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '20mb';
+const MAX_BACKGROUND_IMAGE_MB = getPositiveNumberEnv('MAX_BACKGROUND_IMAGE_MB', 10);
+const MAX_BACKGROUND_IMAGE_BYTES = MAX_BACKGROUND_IMAGE_MB * 1024 * 1024;
+const SOCKET_MAX_BUFFER_MB = getPositiveNumberEnv('SOCKET_MAX_BUFFER_MB', 20);
+const SOCKET_MAX_BUFFER_BYTES = SOCKET_MAX_BUFFER_MB * 1024 * 1024;
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors());
-app.use(express.json({
-  limit: '20mb'
+const clientConfig = {
+  lyricsServiceUrl: process.env.LYRICS_SERVICE_URL || '',
+  audienceUrl: process.env.AUDIENCE_URL || '/audience/',
+  singerUrl: process.env.SINGER_URL || '/singer/',
+  maxBackgroundImageMb: MAX_BACKGROUND_IMAGE_MB
+};
+
+app.use(cors({
+  origin: CORS_ORIGIN
 }));
+app.use(express.json({
+  limit: JSON_BODY_LIMIT
+}));
+
+app.get('/config.js', (req, res) => {
+  res.type('application/javascript');
+  res.send(`window.__PROMPTER_CONFIG__ = ${JSON.stringify(clientConfig)};`);
+});
 
 app.get('/', (req, res) => {
   res.redirect('/control/');
@@ -50,13 +76,12 @@ app.get('/control/edit', (req, res) => {
 
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: CORS_ORIGIN,
     methods: ['GET', 'POST']
   },
-  maxHttpBufferSize: 20 * 1024 * 1024
+  maxHttpBufferSize: SOCKET_MAX_BUFFER_BYTES
 });
 
-const MAX_BACKGROUND_IMAGE_BYTES = 10 * 1024 * 1024;
 const DEFAULT_DISPLAY_SETTINGS = {
   lineCount: 1,
   audience: {
@@ -146,7 +171,7 @@ function normalizeRoleSettings(settings = {}, role) {
     }
 
     if (backgroundImage && getDataUrlByteLength(backgroundImage) > MAX_BACKGROUND_IMAGE_BYTES) {
-      throw new Error('배경 이미지는 10MB 이하만 사용할 수 있습니다.');
+      throw new Error(`배경 이미지는 ${MAX_BACKGROUND_IMAGE_MB}MB 이하만 사용할 수 있습니다.`);
     }
 
     normalized.backgroundImage = backgroundImage;
