@@ -229,10 +229,12 @@ settingsToggleButton.addEventListener('click', () => {
   setDisplaySettingsExpanded(!expanded);
 });
 
-function sendDisplaySettings(target, settings) {
+function sendDisplaySettings(settings, target = null) {
   setDisplayStatus('설정 중');
 
-  socket.emit('control:updateDisplaySettings', { target, settings }, (response) => {
+  const payload = target ? { target, settings } : settings;
+
+  socket.emit('control:updateDisplaySettings', payload, (response) => {
     if (!response?.ok) {
       setDisplayStatus(response?.message || '설정 실패', 'error');
       return;
@@ -254,7 +256,7 @@ function sendDisplaySettings(target, settings) {
 
     fontSizeAudienceValue.textContent = `${payload.fontSizeVw}vw`;
     fontWeightAudienceValue.textContent = String(payload.fontWeight);
-    sendDisplaySettings('audience', payload);
+    sendDisplaySettings(payload, 'audience');
   });
 });
 
@@ -270,7 +272,7 @@ function sendDisplaySettings(target, settings) {
 
     fontSizeSingerValue.textContent = `${payload.fontSizeVw}vw`;
     fontWeightSingerValue.textContent = String(payload.fontWeight);
-    sendDisplaySettings('singer', payload);
+    sendDisplaySettings(payload, 'singer');
   });
 });
 
@@ -278,9 +280,7 @@ lineCountSelect.addEventListener('input', () => {
   if (settingsRenderLocked) return;
 
   const payload = { lineCount: Number(lineCountSelect.value) };
-  // apply to both audience and singer
-  sendDisplaySettings('audience', payload);
-  sendDisplaySettings('singer', payload);
+  sendDisplaySettings(payload);
 });
 
 audienceBackgroundInput.addEventListener('change', async (event) => {

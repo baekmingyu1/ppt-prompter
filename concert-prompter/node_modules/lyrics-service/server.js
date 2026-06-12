@@ -5,14 +5,13 @@ import { Server } from 'socket.io';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import '../../config/load-env.js';
+import {
+  getClientConfig,
+  getPortEnv,
+  getPositiveNumberEnv
+} from '../../config/runtime.js';
 
-function getPositiveNumberEnv(key, fallback) {
-  const value = Number(process.env[key]);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
-const PORT = Number(process.env.PORT || 4000);
+const PORT = getPortEnv('PORT', 4000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,12 +30,11 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 const app = express();
 const server = http.createServer(app);
 
-const clientConfig = {
-  lyricsServiceUrl: process.env.LYRICS_SERVICE_URL || '',
-  audienceUrl: process.env.AUDIENCE_URL || '/audience/',
-  singerUrl: process.env.SINGER_URL || '/singer/',
-  maxBackgroundImageMb: MAX_BACKGROUND_IMAGE_MB
-};
+const clientConfig = getClientConfig({
+  lyricsServiceUrl: '',
+  audienceUrl: '/audience/',
+  singerUrl: '/singer/'
+});
 
 app.use(cors({
   origin: CORS_ORIGIN
@@ -194,7 +192,11 @@ function getDataUrlByteLength(dataUrl) {
     return Buffer.byteLength(body, 'base64');
   }
 
-  return Buffer.byteLength(decodeURIComponent(body), 'utf8');
+  try {
+    return Buffer.byteLength(decodeURIComponent(body), 'utf8');
+  } catch {
+    throw new Error('배경 이미지 데이터 형식이 올바르지 않습니다.');
+  }
 }
 
 function normalizeDisplaySettings(settings = {}) {
