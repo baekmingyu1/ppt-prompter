@@ -15,6 +15,14 @@ const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
+const singerControlToggleButton = document.getElementById('singerControlToggleButton');
+const singerControlStatus = document.getElementById('singerControlStatus');
+const singerLineCounter = document.getElementById('singerLineCounter');
+const singerMessageInput = document.getElementById('singerMessageInput');
+const singerCurrentLyric = document.getElementById('singerCurrentLyric');
+const singerNextLyric = document.getElementById('singerNextLyric');
+const singerPrevButton = document.getElementById('singerPrevButton');
+const singerNextButton = document.getElementById('singerNextButton');
 const lyricsList = document.getElementById('lyricsList');
 const fontSizeAudienceInput = document.getElementById('fontSizeAudienceInput');
 const fontSizeAudienceValue = document.getElementById('fontSizeAudienceValue');
@@ -36,12 +44,24 @@ const displaySettingsBody = document.getElementById('displaySettingsBody');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
 
+function getScreenUrl(configuredUrl, localPort, servicePath) {
+  if (configuredUrl && !configuredUrl.startsWith('/')) {
+    return configuredUrl;
+  }
+
+  if (window.location.port === '3000') {
+    return `${window.location.protocol}//${window.location.hostname}:${localPort}/`;
+  }
+
+  return configuredUrl || `${LYRICS_SERVICE_URL}${servicePath}`;
+}
+
 if (audienceLink) {
-  audienceLink.href = PROMPTER_CONFIG.audienceUrl || `${LYRICS_SERVICE_URL}/audience/`;
+  audienceLink.href = getScreenUrl(PROMPTER_CONFIG.audienceUrl, 3001, '/audience/');
 }
 
 if (singerLink) {
-  singerLink.href = PROMPTER_CONFIG.singerUrl || `${LYRICS_SERVICE_URL}/singer/`;
+  singerLink.href = getScreenUrl(PROMPTER_CONFIG.singerUrl, 3002, '/singer/');
 }
 
 if (audienceBackgroundHint) {
@@ -161,6 +181,48 @@ function updateCurrentLyricScrollState() {
   });
 }
 
+function updateSingerLyricScrollState() {
+  requestAnimationFrame(() => {
+    const hasOverflow = singerCurrentLyric.scrollHeight > singerCurrentLyric.clientHeight + 12;
+    singerCurrentLyric.classList.toggle('is-scrollable', hasOverflow);
+    if (!hasOverflow) {
+      singerCurrentLyric.scrollTop = 0;
+    }
+  });
+}
+
+function getSingerLineCounterText(payload) {
+  const singerState = payload.singerControl || {};
+  if (singerState.enabled) {
+    return '별도 문구 표시 중';
+  }
+
+  const singerLineIndex = singerState.lineIndex || 0;
+  const start = singerLineIndex + 1;
+  const end = Math.min(
+    singerLineIndex + payload.state.displaySettings.lineCount,
+    payload.song.totalLines
+  );
+
+  return start === end ? `${start} / ${payload.song.totalLines}` : `${start}-${end} / ${payload.song.totalLines}`;
+}
+
+function renderSingerControl(payload) {
+  const singerState = payload.singerControl || {};
+  const isEnabled = Boolean(singerState.enabled);
+
+  singerControlStatus.textContent = isEnabled ? '가수용 별도 제어 중' : '관객용과 연동 중';
+  singerControlToggleButton.textContent = isEnabled ? 'ON' : 'OFF';
+  singerControlToggleButton.classList.toggle('primary', isEnabled);
+  singerLineCounter.textContent = getSingerLineCounterText(payload);
+  if (document.activeElement !== singerMessageInput) {
+    singerMessageInput.value = singerState.message || '';
+  }
+  singerCurrentLyric.textContent = payload.state.blank ? '(鍮??붾㈃)' : getLinesText(singerState.currentLines);
+  singerNextLyric.textContent = isEnabled ? '' : (payload.state.blank ? '(鍮??붾㈃)' : getLinesText(singerState.nextLines));
+  updateSingerLyricScrollState();
+}
+
 function render(payload) {
   latestState = payload;
 
@@ -174,6 +236,7 @@ function render(payload) {
   currentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.currentLines);
   nextLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.nextLines);
   updateCurrentLyricScrollState();
+  renderSingerControl(payload);
 }
 
 socket.on('connect', () => {
@@ -221,6 +284,25 @@ blankOnButton.addEventListener('click', () => {
 blankOffButton.addEventListener('click', () => {
   socket.emit('control:blank', {
     blank: false
+  });
+});
+
+singerControlToggleButton.addEventListener('click', () => {
+  socket.emit('control:setSingerControl', {
+    enabled: !(latestState?.singerControl?.enabled || false)
+  });
+});
+
+singerPrevButton.addEventListener('click', () => {
+  singerMessageInput.value = '';
+  socket.emit('control:setSingerMessage', {
+    message: ''
+  });
+});
+
+singerNextButton.addEventListener('click', () => {
+  socket.emit('control:setSingerMessage', {
+    message: singerMessageInput.value
   });
 });
 

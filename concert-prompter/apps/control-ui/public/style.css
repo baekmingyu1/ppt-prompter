@@ -285,6 +285,47 @@ textarea {
   margin-bottom: 0;
 }
 
+.singer-control-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.singer-meta {
+  margin-bottom: 0;
+}
+
+.singer-message-label {
+  margin-bottom: 0;
+}
+
+.singer-message-input {
+  min-height: 110px;
+  margin-top: 8px;
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.compact-box {
+  min-height: 0;
+  margin-bottom: 0;
+  padding: 16px 18px;
+}
+
+.compact-current {
+  max-height: 120px;
+  font-size: 28px;
+}
+
+.compact-next {
+  max-height: 88px;
+  font-size: 20px;
+}
+
+.singer-buttons {
+  grid-template-columns: repeat(2, 1fr);
+  margin-bottom: 0;
+}
+
 .label {
   margin-bottom: 10px;
   color: #888;

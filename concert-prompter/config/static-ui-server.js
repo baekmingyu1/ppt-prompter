@@ -13,6 +13,7 @@ export function createStaticUiServer({
   const filename = fileURLToPath(importMetaUrl);
   const dirname = path.dirname(filename);
   const app = express();
+  const publicPath = path.join(dirname, 'public');
   const clientConfig = getClientConfig(clientConfigDefaults);
 
   app.get('/config.js', (req, res) => {
@@ -20,7 +21,11 @@ export function createStaticUiServer({
     res.send(`window.__PROMPTER_CONFIG__ = ${JSON.stringify(clientConfig)};`);
   });
 
-  app.use(express.static(path.join(dirname, 'public')));
+  app.use(express.static(publicPath));
+
+  app.get(['/control', '/control/', '/audience', '/audience/', '/singer', '/singer/'], (req, res) => {
+    res.redirect('/');
+  });
 
   app.get('/health', (req, res) => {
     res.json({

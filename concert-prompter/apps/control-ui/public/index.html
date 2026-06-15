@@ -18,6 +18,41 @@
 
     <div class="control-layout">
       <div class="control-column">
+        <section class="panel singer-control-panel">
+          <div class="section-header">
+            <h2>가수용 별도 제어</h2>
+            <div class="section-actions">
+              <span id="singerControlStatus" class="save-status">관객용과 연동 중</span>
+              <button id="singerControlToggleButton" class="toggle-button" type="button">OFF</button>
+            </div>
+          </div>
+
+          <div class="meta singer-meta">
+            <span>가수용 현재 위치</span>
+            <span id="singerLineCounter">0 / 0</span>
+          </div>
+
+          <label class="singer-message-label">
+            가수용 안내 문구
+            <textarea id="singerMessageInput" class="singer-message-input" rows="4" placeholder="예: 남은 시간 3분"></textarea>
+          </label>
+
+          <div class="current-box compact-box">
+            <div class="label">가수용 현재 가사</div>
+            <div id="singerCurrentLyric" class="current compact-current">-</div>
+          </div>
+
+          <div class="next-box compact-box">
+            <div class="label">가수용 다음 가사</div>
+            <div id="singerNextLyric" class="next compact-next">-</div>
+          </div>
+
+          <div class="buttons singer-buttons">
+            <button id="singerPrevButton" type="button">문구 비우기</button>
+            <button id="singerNextButton" type="button" class="primary">문구 적용</button>
+          </div>
+        </section>
+
         <section class="panel">
           <div class="song-toolbar">
             <label for="songSelect">곡 선택</label>
