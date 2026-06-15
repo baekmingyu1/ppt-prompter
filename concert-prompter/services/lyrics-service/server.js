@@ -92,6 +92,12 @@ const DEFAULT_DISPLAY_SETTINGS = {
     fontSizeVw: 6,
     fontWeight: 900,
     fontColor: '#ffffff'
+  },
+  control: {
+    currentFontSizePx: 20,
+    nextFontSizePx: 20,
+    singerPreviewCurrentFontSizePx: 20,
+    singerPreviewNextFontSizePx: 20
   }
 };
 
@@ -99,6 +105,11 @@ let songs = [];
 let state = {
   songId: null,
   lineIndex: 0,
+  singerControl: {
+    enabled: false,
+    lineIndex: 0,
+    message: ''
+  },
   blank: false,
   displaySettings: JSON.parse(JSON.stringify(DEFAULT_DISPLAY_SETTINGS)),
   updatedAt: new Date().toISOString()
@@ -136,6 +147,24 @@ function touchState() {
 
 function getVisibleLines(lyrics, startIndex, count) {
   return lyrics.slice(startIndex, startIndex + count);
+}
+
+function getSingerMessageLines() {
+  return String(state.singerControl.message || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function getEffectiveSingerLineIndex(song = getCurrentSong()) {
+  const baseIndex = state.singerControl.enabled ? state.singerControl.lineIndex : state.lineIndex;
+  return clampLineIndex(baseIndex, song);
+}
+
+function syncSingerLineIndex(song = getCurrentSong()) {
+  state.singerControl.lineIndex = state.singerControl.enabled
+    ? clampLineIndex(state.singerControl.lineIndex, song)
+    : state.lineIndex;
 }
 
 function normalizeRoleSettings(settings = {}, role) {
@@ -178,6 +207,36 @@ function normalizeRoleSettings(settings = {}, role) {
   return normalized;
 }
 
+function normalizeControlSettings(settings = {}) {
+  const currentFontSizePx = Number(settings.currentFontSizePx);
+  const nextFontSizePx = Number(settings.nextFontSizePx);
+  const singerPreviewCurrentFontSizePx = Number(settings.singerPreviewCurrentFontSizePx);
+  const singerPreviewNextFontSizePx = Number(settings.singerPreviewNextFontSizePx);
+
+  if (!Number.isFinite(currentFontSizePx) || currentFontSizePx < 12 || currentFontSizePx > 72) {
+    throw new Error('control current font size must be between 12 and 72.');
+  }
+
+  if (!Number.isFinite(nextFontSizePx) || nextFontSizePx < 12 || nextFontSizePx > 72) {
+    throw new Error('control next font size must be between 12 and 72.');
+  }
+
+  if (!Number.isFinite(singerPreviewCurrentFontSizePx) || singerPreviewCurrentFontSizePx < 12 || singerPreviewCurrentFontSizePx > 72) {
+    throw new Error('singer preview current font size must be between 12 and 72.');
+  }
+
+  if (!Number.isFinite(singerPreviewNextFontSizePx) || singerPreviewNextFontSizePx < 12 || singerPreviewNextFontSizePx > 72) {
+    throw new Error('singer preview next font size must be between 12 and 72.');
+  }
+
+  return {
+    currentFontSizePx,
+    nextFontSizePx,
+    singerPreviewCurrentFontSizePx,
+    singerPreviewNextFontSizePx
+  };
+}
+
 function getDataUrlByteLength(dataUrl) {
   const commaIndex = dataUrl.indexOf(',');
 
@@ -210,6 +269,10 @@ function normalizeDisplaySettings(settings = {}) {
     singer: {
       ...DEFAULT_DISPLAY_SETTINGS.singer,
       ...(settings.singer || {})
+    },
+    control: {
+      ...DEFAULT_DISPLAY_SETTINGS.control,
+      ...(settings.control || {})
     }
   };
 
@@ -231,14 +294,15 @@ function normalizeDisplaySettings(settings = {}) {
   return {
     lineCount,
     audience: normalizeRoleSettings(migratedSettings.audience, 'audience'),
-    singer: normalizeRoleSettings(migratedSettings.singer, 'singer')
+    singer: normalizeRoleSettings(migratedSettings.singer, 'singer'),
+    control: normalizeControlSettings(migratedSettings.control)
   };
 }
 
 function buildDisplaySettingsUpdate(payload = {}) {
   if (payload.target && payload.settings) {
-    if (!['audience', 'singer'].includes(payload.target)) {
-      throw new Error('target은 audience 또는 singer여야 합니다.');
+    if (!['audience', 'singer', 'control'].includes(payload.target)) {
+      throw new Error('target은 audience, singer 또는 control이어야 합니다.');
     }
 
     const nextSettings = {
@@ -248,6 +312,9 @@ function buildDisplaySettingsUpdate(payload = {}) {
       },
       singer: {
         ...state.displaySettings.singer
+      },
+      control: {
+        ...state.displaySettings.control
       }
     };
 
@@ -281,6 +348,14 @@ function buildControlPayload() {
   const lineCount = state.displaySettings.lineCount;
   const currentLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex, lineCount);
   const nextLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex + lineCount, lineCount);
+  const singerLineIndex = getEffectiveSingerLineIndex(song);
+  const singerMessageLines = getSingerMessageLines();
+  const singerCurrentLines = state.singerControl.enabled
+    ? singerMessageLines
+    : (state.blank ? [] : getVisibleLines(lyrics, singerLineIndex, lineCount));
+  const singerNextLines = state.singerControl.enabled
+    ? []
+    : (state.blank ? [] : getVisibleLines(lyrics, singerLineIndex + lineCount, lineCount));
   const current = state.blank ? '' : lyrics[state.lineIndex] || '';
   const next = nextLines[0] || '';
 
@@ -303,7 +378,16 @@ function buildControlPayload() {
     next,
     currentLines,
     nextLines,
-    lyrics
+    lyrics,
+    singerControl: {
+      enabled: state.singerControl.enabled,
+      lineIndex: singerLineIndex,
+      message: state.singerControl.message,
+      current: singerCurrentLines[0] || '',
+      next: singerNextLines[0] || '',
+      currentLines: singerCurrentLines,
+      nextLines: singerNextLines
+    }
   };
 }
 
@@ -333,16 +417,23 @@ function buildSingerPayload() {
   const song = getCurrentSong();
   const lyrics = song.lyrics || [];
   const lineCount = state.displaySettings.lineCount;
-  const currentLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex, lineCount);
-  const nextLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex + lineCount, lineCount);
+  const lineIndex = getEffectiveSingerLineIndex(song);
+  const messageLines = getSingerMessageLines();
+  const currentLines = state.blank
+    ? []
+    : (state.singerControl.enabled ? messageLines : getVisibleLines(lyrics, lineIndex, lineCount));
+  const nextLines = state.blank || state.singerControl.enabled
+    ? []
+    : getVisibleLines(lyrics, lineIndex + lineCount, lineCount);
 
   return {
     role: 'singer',
     blank: state.blank,
     songTitle: song.title,
     artist: song.artist,
-    lineIndex: state.lineIndex,
+    lineIndex,
     totalLines: lyrics.length,
+    separateControlEnabled: state.singerControl.enabled,
     displaySettings: {
       ...state.displaySettings.singer,
       lineCount: state.displaySettings.lineCount
@@ -369,6 +460,7 @@ function setSong(songId) {
 
   state.songId = songId;
   state.lineIndex = 0;
+  syncSingerLineIndex(getCurrentSong());
   state.blank = false;
   touchState();
 }
@@ -376,6 +468,7 @@ function setSong(songId) {
 function moveLine(delta) {
   const song = getCurrentSong();
   state.lineIndex = clampLineIndex(state.lineIndex + delta * state.displaySettings.lineCount, song);
+  syncSingerLineIndex(song);
   state.blank = false;
   touchState();
 }
@@ -383,7 +476,21 @@ function moveLine(delta) {
 function setLineIndex(index) {
   const song = getCurrentSong();
   state.lineIndex = clampLineIndex(index, song);
+  syncSingerLineIndex(song);
   state.blank = false;
+  touchState();
+}
+
+function setSingerControlEnabled(enabled) {
+  state.singerControl.enabled = Boolean(enabled);
+  state.singerControl.lineIndex = state.lineIndex;
+  touchState();
+}
+
+function setSingerMessage(message) {
+  const nextMessage = String(message || '').slice(0, 1000);
+  state.singerControl.message = nextMessage;
+  state.singerControl.enabled = Boolean(nextMessage.trim());
   touchState();
 }
 
@@ -417,6 +524,7 @@ async function updateSong({ songId, title, artist, lyrics }) {
 
   if (state.songId === song.id) {
     state.lineIndex = clampLineIndex(state.lineIndex, song);
+    syncSingerLineIndex(song);
     state.blank = false;
   }
 
@@ -666,6 +774,16 @@ io.on('connection', (socket) => {
         message: error.message
       });
     }
+  });
+
+  socket.on('control:setSingerControl', ({ enabled }) => {
+    setSingerControlEnabled(enabled);
+    emitState();
+  });
+
+  socket.on('control:setSingerMessage', ({ message }) => {
+    setSingerMessage(message);
+    emitState();
   });
 
   socket.on('control:updateSong', async (payload, callback) => {

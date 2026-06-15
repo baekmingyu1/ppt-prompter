@@ -13,23 +13,55 @@
         <h1>Concert Prompter Control</h1>
         <p>오퍼레이터 제어 화면</p>
       </div>
-      <div id="connectionStatus" class="status">연결 대기</div>
+      <div class="header-actions">
+        <div class="screen-links">
+          <a class="button-link" href="./edit.html">가사 편집</a>
+          <a id="audienceLink" class="button-link" href="/audience/" target="_blank">관객용</a>
+          <a id="singerLink" class="button-link" href="/singer/" target="_blank">가수용</a>
+        </div>
+        <div id="connectionStatus" class="status">연결 대기</div>
+      </div>
     </header>
 
     <div class="control-layout">
-      <div class="control-column">
-        <section class="panel">
-          <div class="song-toolbar">
-            <label for="songSelect">곡 선택</label>
-            <div class="screen-links">
-              <a class="button-link" href="./edit.html">가사 편집</a>
-              <a id="audienceLink" class="button-link" href="/audience/" target="_blank">관객용</a>
-              <a id="singerLink" class="button-link" href="/singer/" target="_blank">가수용</a>
+      <div class="singer-column">
+        <section class="panel singer-control-panel">
+          <div class="section-header">
+            <h2>가수용 별도 제어</h2>
+            <div class="section-actions">
+              <span id="singerControlStatus" class="save-status">관객용과 연동 중</span>
+              <button id="singerControlToggleButton" class="toggle-button" type="button">OFF</button>
             </div>
           </div>
-          <select id="songSelect"></select>
-        </section>
 
+          <div class="meta singer-meta">
+            <span>가수용 현재 위치</span>
+            <span id="singerLineCounter">0 / 0</span>
+          </div>
+
+          <label class="singer-message-label">
+            가수용 안내 문구
+            <textarea id="singerMessageInput" class="singer-message-input" rows="4" placeholder="예: 남은 시간 3분"></textarea>
+          </label>
+
+          <div class="current-box compact-box">
+            <div class="label">가수용 현재 가사</div>
+            <div id="singerCurrentLyric" class="current compact-current">-</div>
+          </div>
+
+          <div class="next-box compact-box">
+            <div class="label">가수용 다음 가사</div>
+            <div id="singerNextLyric" class="next compact-next">-</div>
+          </div>
+
+          <div class="buttons singer-buttons">
+            <button id="singerPrevButton" type="button">문구 비우기</button>
+            <button id="singerNextButton" type="button" class="primary">문구 적용</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="control-column">
         <section class="now-panel">
           <div class="meta">
             <span id="songTitle">-</span>
@@ -88,12 +120,6 @@
                 폰트 색상
                 <input id="fontColorAudienceInput" type="color" />
               </label>
-
-              <label>
-                배경 이미지 (관객용)
-                <input id="audienceBackgroundInput" type="file" accept="image/*" />
-                <div id="audienceBackgroundHint" class="hint">최대 용량 확인 중</div>
-              </label>
             </div>
 
             <div class="settings-column">
@@ -122,6 +148,14 @@
 
             <div class="settings-column">
               <label>
+                배경 이미지 (관객용)
+                <input id="audienceBackgroundInput" type="file" accept="image/*" />
+                <div id="audienceBackgroundHint" class="hint">최대 용량 확인 중</div>
+              </label>
+            </div>
+
+            <div class="settings-column">
+              <label>
                 가사 노출 기준
                 <select id="lineCountSelect">
                   <option value="1">1줄씩 표시</option>
@@ -131,11 +165,56 @@
                 </select>
               </label>
             </div>
+
+            <div class="settings-column control-settings-column">
+              <h3>제어 화면 설정</h3>
+              <label>
+                현재 가사 폰트 크기
+                <div class="range-control">
+                  <input id="controlCurrentFontSizeInput" type="range" min="12" max="72" step="1" />
+                  <span id="controlCurrentFontSizeValue">20px</span>
+                </div>
+              </label>
+
+              <label>
+                다음 가사 폰트 크기
+                <div class="range-control">
+                  <input id="controlNextFontSizeInput" type="range" min="12" max="72" step="1" />
+                  <span id="controlNextFontSizeValue">20px</span>
+                </div>
+              </label>
+
+              <label>
+                가수용 현재 미리보기 폰트 크기
+                <div class="range-control">
+                  <input id="singerPreviewCurrentFontSizeInput" type="range" min="12" max="72" step="1" />
+                  <span id="singerPreviewCurrentFontSizeValue">20px</span>
+                </div>
+              </label>
+
+              <label>
+                가수용 다음 미리보기 폰트 크기
+                <div class="range-control">
+                  <input id="singerPreviewNextFontSizeInput" type="range" min="12" max="72" step="1" />
+                  <span id="singerPreviewNextFontSizeValue">20px</span>
+                </div>
+              </label>
+            </div>
           </div>
         </section>
       </div>
 
       <aside class="lyrics-panel panel">
+        <div class="song-toolbar">
+          <label for="songSelect">곡 선택</label>
+          <div class="song-nav">
+            <button id="prevSongButton" class="small-button" type="button">이전 곡</button>
+            <button id="songStartButton" class="small-button" type="button">처음으로</button>
+            <button id="nextSongButton" class="small-button" type="button">다음 곡</button>
+          </div>
+        </div>
+        <select id="songSelect"></select>
+
         <h2>전체 가사</h2>
         <div class="lyrics-scroll">
           <ol id="lyricsList" class="lyrics-list"></ol>

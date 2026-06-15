@@ -7,6 +7,9 @@ const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 
 const connectionStatus = document.getElementById('connectionStatus');
 const songSelect = document.getElementById('songSelect');
+const prevSongButton = document.getElementById('prevSongButton');
+const songStartButton = document.getElementById('songStartButton');
+const nextSongButton = document.getElementById('nextSongButton');
 const songTitle = document.getElementById('songTitle');
 const lineCounter = document.getElementById('lineCounter');
 const currentLyric = document.getElementById('currentLyric');
@@ -15,6 +18,14 @@ const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
+const singerControlToggleButton = document.getElementById('singerControlToggleButton');
+const singerControlStatus = document.getElementById('singerControlStatus');
+const singerLineCounter = document.getElementById('singerLineCounter');
+const singerMessageInput = document.getElementById('singerMessageInput');
+const singerCurrentLyric = document.getElementById('singerCurrentLyric');
+const singerNextLyric = document.getElementById('singerNextLyric');
+const singerPrevButton = document.getElementById('singerPrevButton');
+const singerNextButton = document.getElementById('singerNextButton');
 const lyricsList = document.getElementById('lyricsList');
 const fontSizeAudienceInput = document.getElementById('fontSizeAudienceInput');
 const fontSizeAudienceValue = document.getElementById('fontSizeAudienceValue');
@@ -29,6 +40,14 @@ const fontSizeSingerValue = document.getElementById('fontSizeSingerValue');
 const fontWeightSingerInput = document.getElementById('fontWeightSingerInput');
 const fontWeightSingerValue = document.getElementById('fontWeightSingerValue');
 const fontColorSingerInput = document.getElementById('fontColorSingerInput');
+const controlCurrentFontSizeInput = document.getElementById('controlCurrentFontSizeInput');
+const controlCurrentFontSizeValue = document.getElementById('controlCurrentFontSizeValue');
+const controlNextFontSizeInput = document.getElementById('controlNextFontSizeInput');
+const controlNextFontSizeValue = document.getElementById('controlNextFontSizeValue');
+const singerPreviewCurrentFontSizeInput = document.getElementById('singerPreviewCurrentFontSizeInput');
+const singerPreviewCurrentFontSizeValue = document.getElementById('singerPreviewCurrentFontSizeValue');
+const singerPreviewNextFontSizeInput = document.getElementById('singerPreviewNextFontSizeInput');
+const singerPreviewNextFontSizeValue = document.getElementById('singerPreviewNextFontSizeValue');
 const lineCountSelect = document.getElementById('lineCountSelect');
 const displayStatus = document.getElementById('displayStatus');
 const settingsToggleButton = document.getElementById('settingsToggleButton');
@@ -36,12 +55,24 @@ const displaySettingsBody = document.getElementById('displaySettingsBody');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
 
+function getScreenUrl(configuredUrl, localPort, servicePath) {
+  if (configuredUrl && !configuredUrl.startsWith('/')) {
+    return configuredUrl;
+  }
+
+  if (window.location.port === '3000') {
+    return `${window.location.protocol}//${window.location.hostname}:${localPort}/`;
+  }
+
+  return configuredUrl || `${LYRICS_SERVICE_URL}${servicePath}`;
+}
+
 if (audienceLink) {
-  audienceLink.href = PROMPTER_CONFIG.audienceUrl || `${LYRICS_SERVICE_URL}/audience/`;
+  audienceLink.href = getScreenUrl(PROMPTER_CONFIG.audienceUrl, 3001, '/audience/');
 }
 
 if (singerLink) {
-  singerLink.href = PROMPTER_CONFIG.singerUrl || `${LYRICS_SERVICE_URL}/singer/`;
+  singerLink.href = getScreenUrl(PROMPTER_CONFIG.singerUrl, 3002, '/singer/');
 }
 
 if (audienceBackgroundHint) {
@@ -50,6 +81,32 @@ if (audienceBackgroundHint) {
 
 let latestState = null;
 let settingsRenderLocked = false;
+let pendingControlDisplaySettings = null;
+
+function isControlDisplaySettingsInput(element) {
+  return [
+    controlCurrentFontSizeInput,
+    controlNextFontSizeInput,
+    singerPreviewCurrentFontSizeInput,
+    singerPreviewNextFontSizeInput
+  ].includes(element);
+}
+
+function getControlDisplaySettingsFromInputs() {
+  return {
+    currentFontSizePx: Number(controlCurrentFontSizeInput.value),
+    nextFontSizePx: Number(controlNextFontSizeInput.value),
+    singerPreviewCurrentFontSizePx: Number(singerPreviewCurrentFontSizeInput.value),
+    singerPreviewNextFontSizePx: Number(singerPreviewNextFontSizeInput.value)
+  };
+}
+
+function controlDisplaySettingsMatch(left, right) {
+  return left.currentFontSizePx === right.currentFontSizePx
+    && left.nextFontSizePx === right.nextFontSizePx
+    && left.singerPreviewCurrentFontSizePx === right.singerPreviewCurrentFontSizePx
+    && left.singerPreviewNextFontSizePx === right.singerPreviewNextFontSizePx;
+}
 
 function renderSongs(payload) {
   songSelect.innerHTML = '';
@@ -62,6 +119,11 @@ function renderSongs(payload) {
   });
 
   songSelect.value = payload.song.id;
+
+  const currentSongIndex = payload.songs.findIndex((song) => song.id === payload.song.id);
+  prevSongButton.disabled = currentSongIndex <= 0;
+  songStartButton.disabled = payload.state.lineIndex <= 0;
+  nextSongButton.disabled = currentSongIndex === -1 || currentSongIndex >= payload.songs.length - 1;
 }
 
 function renderLyricsList(payload) {
@@ -91,10 +153,11 @@ function renderLyricsList(payload) {
 
   if (activeLine) {
     requestAnimationFrame(() => {
-      activeLine.scrollIntoView({
-        block: 'center',
-        behavior: 'smooth'
-      });
+      const scrollContainer = lyricsList.closest('.lyrics-scroll');
+      if (!scrollContainer) return;
+
+      const targetTop = activeLine.offsetTop - (scrollContainer.clientHeight / 2) + (activeLine.offsetHeight / 2);
+      scrollContainer.scrollTop = Math.max(targetTop, 0);
     });
   }
 }
@@ -103,6 +166,24 @@ function renderDisplaySettings(payload) {
   const settings = payload.state.displaySettings || {};
   const audience = settings.audience || settings;
   const singer = settings.singer || settings;
+  const control = settings.control || {};
+  const serverControlDisplaySettings = {
+    currentFontSizePx: Number(control.currentFontSizePx || 20),
+    nextFontSizePx: Number(control.nextFontSizePx || 20),
+    singerPreviewCurrentFontSizePx: Number(control.singerPreviewCurrentFontSizePx || 20),
+    singerPreviewNextFontSizePx: Number(control.singerPreviewNextFontSizePx || 20)
+  };
+
+  if (
+    pendingControlDisplaySettings
+    && controlDisplaySettingsMatch(pendingControlDisplaySettings, serverControlDisplaySettings)
+  ) {
+    pendingControlDisplaySettings = null;
+  }
+
+  const controlDisplaySettings = pendingControlDisplaySettings && isControlDisplaySettingsInput(document.activeElement)
+    ? pendingControlDisplaySettings
+    : serverControlDisplaySettings;
 
   settingsRenderLocked = true;
   fontSizeAudienceInput.value = audience.fontSizeVw;
@@ -117,8 +198,30 @@ function renderDisplaySettings(payload) {
   fontWeightSingerValue.textContent = String(singer.fontWeight || 900);
   fontColorSingerInput.value = singer.fontColor || '#ffffff';
 
+  controlCurrentFontSizeInput.value = controlDisplaySettings.currentFontSizePx;
+  controlCurrentFontSizeValue.textContent = `${controlDisplaySettings.currentFontSizePx}px`;
+  controlNextFontSizeInput.value = controlDisplaySettings.nextFontSizePx;
+  controlNextFontSizeValue.textContent = `${controlDisplaySettings.nextFontSizePx}px`;
+  singerPreviewCurrentFontSizeInput.value = controlDisplaySettings.singerPreviewCurrentFontSizePx;
+  singerPreviewCurrentFontSizeValue.textContent = `${controlDisplaySettings.singerPreviewCurrentFontSizePx}px`;
+  singerPreviewNextFontSizeInput.value = controlDisplaySettings.singerPreviewNextFontSizePx;
+  singerPreviewNextFontSizeValue.textContent = `${controlDisplaySettings.singerPreviewNextFontSizePx}px`;
+  applyControlDisplaySettings(
+    controlDisplaySettings.currentFontSizePx,
+    controlDisplaySettings.nextFontSizePx,
+    controlDisplaySettings.singerPreviewCurrentFontSizePx,
+    controlDisplaySettings.singerPreviewNextFontSizePx
+  );
+
   lineCountSelect.value = String(settings.lineCount || audience.lineCount || singer.lineCount || 1);
   settingsRenderLocked = false;
+}
+
+function applyControlDisplaySettings(currentFontSizePx, nextFontSizePx, singerPreviewCurrentFontSizePx = 20, singerPreviewNextFontSizePx = 20) {
+  currentLyric.style.fontSize = `${currentFontSizePx}px`;
+  nextLyric.style.fontSize = `${nextFontSizePx}px`;
+  singerCurrentLyric.style.fontSize = `${singerPreviewCurrentFontSizePx}px`;
+  singerNextLyric.style.fontSize = `${singerPreviewNextFontSizePx}px`;
 }
 
 function setDisplayStatus(message, type = '') {
@@ -161,6 +264,48 @@ function updateCurrentLyricScrollState() {
   });
 }
 
+function updateSingerLyricScrollState() {
+  requestAnimationFrame(() => {
+    const hasOverflow = singerCurrentLyric.scrollHeight > singerCurrentLyric.clientHeight + 12;
+    singerCurrentLyric.classList.toggle('is-scrollable', hasOverflow);
+    if (!hasOverflow) {
+      singerCurrentLyric.scrollTop = 0;
+    }
+  });
+}
+
+function getSingerLineCounterText(payload) {
+  const singerState = payload.singerControl || {};
+  if (singerState.enabled) {
+    return '별도 문구 표시 중';
+  }
+
+  const singerLineIndex = singerState.lineIndex || 0;
+  const start = singerLineIndex + 1;
+  const end = Math.min(
+    singerLineIndex + payload.state.displaySettings.lineCount,
+    payload.song.totalLines
+  );
+
+  return start === end ? `${start} / ${payload.song.totalLines}` : `${start}-${end} / ${payload.song.totalLines}`;
+}
+
+function renderSingerControl(payload) {
+  const singerState = payload.singerControl || {};
+  const isEnabled = Boolean(singerState.enabled);
+
+  singerControlStatus.textContent = isEnabled ? '가수용 별도 제어 중' : '관객용과 연동 중';
+  singerControlToggleButton.textContent = isEnabled ? 'ON' : 'OFF';
+  singerControlToggleButton.classList.toggle('primary', isEnabled);
+  singerLineCounter.textContent = getSingerLineCounterText(payload);
+  if (document.activeElement !== singerMessageInput) {
+    singerMessageInput.value = singerState.message || '';
+  }
+  singerCurrentLyric.textContent = payload.state.blank ? '(鍮??붾㈃)' : getLinesText(singerState.currentLines);
+  singerNextLyric.textContent = isEnabled ? '' : (payload.state.blank ? '(鍮??붾㈃)' : getLinesText(singerState.nextLines));
+  updateSingerLyricScrollState();
+}
+
 function render(payload) {
   latestState = payload;
 
@@ -174,6 +319,7 @@ function render(payload) {
   currentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.currentLines);
   nextLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.nextLines);
   updateCurrentLyricScrollState();
+  renderSingerControl(payload);
 }
 
 socket.on('connect', () => {
@@ -204,6 +350,34 @@ songSelect.addEventListener('change', () => {
   });
 });
 
+function moveSong(delta) {
+  if (!latestState?.songs?.length) return;
+
+  const currentSongIndex = latestState.songs.findIndex((song) => song.id === latestState.song.id);
+  const nextSongIndex = currentSongIndex + delta;
+  const nextSong = latestState.songs[nextSongIndex];
+
+  if (!nextSong) return;
+
+  socket.emit('control:setSong', {
+    songId: nextSong.id
+  });
+}
+
+prevSongButton.addEventListener('click', () => {
+  moveSong(-1);
+});
+
+nextSongButton.addEventListener('click', () => {
+  moveSong(1);
+});
+
+songStartButton.addEventListener('click', () => {
+  socket.emit('control:setLine', {
+    lineIndex: 0
+  });
+});
+
 prevButton.addEventListener('click', () => {
   socket.emit('control:prev');
 });
@@ -221,6 +395,25 @@ blankOnButton.addEventListener('click', () => {
 blankOffButton.addEventListener('click', () => {
   socket.emit('control:blank', {
     blank: false
+  });
+});
+
+singerControlToggleButton.addEventListener('click', () => {
+  socket.emit('control:setSingerControl', {
+    enabled: !(latestState?.singerControl?.enabled || false)
+  });
+});
+
+singerPrevButton.addEventListener('click', () => {
+  singerMessageInput.value = '';
+  socket.emit('control:setSingerMessage', {
+    message: ''
+  });
+});
+
+singerNextButton.addEventListener('click', () => {
+  socket.emit('control:setSingerMessage', {
+    message: singerMessageInput.value
   });
 });
 
@@ -273,6 +466,33 @@ function sendDisplaySettings(settings, target = null) {
     fontSizeSingerValue.textContent = `${payload.fontSizeVw}vw`;
     fontWeightSingerValue.textContent = String(payload.fontWeight);
     sendDisplaySettings(payload, 'singer');
+  });
+});
+
+[controlCurrentFontSizeInput, controlNextFontSizeInput, singerPreviewCurrentFontSizeInput, singerPreviewNextFontSizeInput].forEach((el) => {
+  el.addEventListener('input', () => {
+    if (settingsRenderLocked) return;
+
+    pendingControlDisplaySettings = getControlDisplaySettingsFromInputs();
+
+    controlCurrentFontSizeValue.textContent = `${pendingControlDisplaySettings.currentFontSizePx}px`;
+    controlNextFontSizeValue.textContent = `${pendingControlDisplaySettings.nextFontSizePx}px`;
+    singerPreviewCurrentFontSizeValue.textContent = `${pendingControlDisplaySettings.singerPreviewCurrentFontSizePx}px`;
+    singerPreviewNextFontSizeValue.textContent = `${pendingControlDisplaySettings.singerPreviewNextFontSizePx}px`;
+    applyControlDisplaySettings(
+      pendingControlDisplaySettings.currentFontSizePx,
+      pendingControlDisplaySettings.nextFontSizePx,
+      pendingControlDisplaySettings.singerPreviewCurrentFontSizePx,
+      pendingControlDisplaySettings.singerPreviewNextFontSizePx
+    );
+
+    sendDisplaySettings({
+      ...latestState.state.displaySettings,
+      control: {
+        ...(latestState.state.displaySettings.control || {}),
+        ...pendingControlDisplaySettings
+      }
+    });
   });
 });
 

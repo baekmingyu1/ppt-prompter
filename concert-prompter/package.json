@@ -10,7 +10,7 @@
     "apps/singer-ui"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev -w lyrics-service\" \"npm run dev -w control-ui\" \"npm run dev -w audience-ui\" \"npm run dev -w singer-ui\"",
+    "dev": "concurrently -n service,control,audience,singer \"node services/lyrics-service/server.js\" \"node apps/control-ui/server.js\" \"node apps/audience-ui/server.js\" \"node apps/singer-ui/server.js\"",
     "start": "npm run dev",
     "check": "node --check services/lyrics-service/server.js && node --check apps/control-ui/public/app.js && node --check apps/control-ui/public/edit.js && node --check apps/audience-ui/public/app.js && node --check apps/singer-ui/public/app.js && node --check config/load-env.js && node --check config/runtime.js && node --check config/static-ui-server.js",
     "stop": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$ids = Get-NetTCPConnection -LocalPort 3000,3001,3002,4000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -ne 0 }; if ($ids) { $ids | ForEach-Object { Stop-Process -Id $_ -Force } }; exit 0\""
