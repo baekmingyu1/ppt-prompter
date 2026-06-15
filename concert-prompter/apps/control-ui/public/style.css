@@ -10,18 +10,20 @@ body {
 }
 
 .page {
-  max-width: 1500px;
+  width: min(96vw, 1900px);
+  max-width: none;
   margin: 0 auto;
   padding: 24px;
 }
 
 .control-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(500px, 0.42fr);
+  grid-template-columns: minmax(520px, 1.0fr) minmax(520px, 1.2fr) minmax(360px, 0.82fr);
   align-items: start;
   gap: 20px;
 }
 
+.singer-column,
 .control-column {
   min-width: 0;
 }
@@ -74,7 +76,7 @@ body {
 .now-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1.8fr) minmax(0, 1fr);
-  height: 500px;
+  height: 520px;
 }
 
 label {
@@ -147,7 +149,7 @@ textarea {
 
 .settings-grid {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -358,7 +360,7 @@ textarea {
 
 .buttons {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-bottom: 20px;
 }

@@ -17,7 +17,7 @@
     </header>
 
     <div class="control-layout">
-      <div class="control-column">
+      <div class="singer-column">
         <section class="panel singer-control-panel">
           <div class="section-header">
             <h2>가수용 별도 제어</h2>
@@ -52,7 +52,9 @@
             <button id="singerNextButton" type="button" class="primary">문구 적용</button>
           </div>
         </section>
+      </div>
 
+      <div class="control-column">
         <section class="now-panel">
           <div class="meta">
             <span id="songTitle">-</span>
@@ -111,12 +113,6 @@
                 폰트 색상
                 <input id="fontColorAudienceInput" type="color" />
               </label>
-
-              <label>
-                배경 이미지 (관객용)
-                <input id="audienceBackgroundInput" type="file" accept="image/*" />
-                <div id="audienceBackgroundHint" class="hint">최대 용량 확인 중</div>
-              </label>
             </div>
 
             <div class="settings-column">
@@ -140,6 +136,14 @@
               <label>
                 폰트 색상
                 <input id="fontColorSingerInput" type="color" />
+              </label>
+            </div>
+
+            <div class="settings-column">
+              <label>
+                배경 이미지 (관객용)
+                <input id="audienceBackgroundInput" type="file" accept="image/*" />
+                <div id="audienceBackgroundHint" class="hint">최대 용량 확인 중</div>
               </label>
             </div>
 
