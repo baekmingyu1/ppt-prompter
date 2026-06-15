@@ -33,6 +33,8 @@ const fontWeightAudienceInput = document.getElementById('fontWeightAudienceInput
 const fontWeightAudienceValue = document.getElementById('fontWeightAudienceValue');
 const fontColorAudienceInput = document.getElementById('fontColorAudienceInput');
 const audienceBackgroundInput = document.getElementById('audienceBackgroundInput');
+const audienceBackgroundStatus = document.getElementById('audienceBackgroundStatus');
+const audienceBackgroundClearButton = document.getElementById('audienceBackgroundClearButton');
 const audienceBackgroundHint = document.getElementById('audienceBackgroundHint');
 
 const fontSizeSingerInput = document.getElementById('fontSizeSingerInput');
@@ -191,6 +193,8 @@ function renderDisplaySettings(payload) {
   fontWeightAudienceInput.value = audience.fontWeight || 800;
   fontWeightAudienceValue.textContent = String(audience.fontWeight || 800);
   fontColorAudienceInput.value = audience.fontColor || '#ffffff';
+  audienceBackgroundStatus.textContent = audience.backgroundImage ? '현재 배경 적용됨' : '현재 배경 없음';
+  audienceBackgroundClearButton.disabled = !audience.backgroundImage;
 
   fontSizeSingerInput.value = singer.fontSizeVw;
   fontSizeSingerValue.textContent = `${singer.fontSizeVw}vw`;
@@ -549,6 +553,14 @@ audienceBackgroundInput.addEventListener('change', async (event) => {
   };
 
   reader.readAsDataURL(file);
+});
+
+audienceBackgroundClearButton.addEventListener('click', () => {
+  if (settingsRenderLocked) return;
+
+  sendDisplaySettings({
+    backgroundImage: ''
+  }, 'audience');
 });
 
 document.addEventListener('keydown', (event) => {
