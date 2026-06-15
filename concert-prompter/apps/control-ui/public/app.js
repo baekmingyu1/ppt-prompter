@@ -111,10 +111,11 @@ function renderLyricsList(payload) {
 
   if (activeLine) {
     requestAnimationFrame(() => {
-      activeLine.scrollIntoView({
-        block: 'center',
-        behavior: 'smooth'
-      });
+      const scrollContainer = lyricsList.closest('.lyrics-scroll');
+      if (!scrollContainer) return;
+
+      const targetTop = activeLine.offsetTop - (scrollContainer.clientHeight / 2) + (activeLine.offsetHeight / 2);
+      scrollContainer.scrollTop = Math.max(targetTop, 0);
     });
   }
 }

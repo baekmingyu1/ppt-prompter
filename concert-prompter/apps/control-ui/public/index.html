@@ -53,18 +53,6 @@
           </div>
         </section>
 
-        <section class="panel">
-          <div class="song-toolbar">
-            <label for="songSelect">곡 선택</label>
-            <div class="screen-links">
-              <a class="button-link" href="./edit.html">가사 편집</a>
-              <a id="audienceLink" class="button-link" href="/audience/" target="_blank">관객용</a>
-              <a id="singerLink" class="button-link" href="/singer/" target="_blank">가수용</a>
-            </div>
-          </div>
-          <select id="songSelect"></select>
-        </section>
-
         <section class="now-panel">
           <div class="meta">
             <span id="songTitle">-</span>
@@ -171,6 +159,16 @@
       </div>
 
       <aside class="lyrics-panel panel">
+        <div class="song-toolbar">
+          <label for="songSelect">곡 선택</label>
+          <div class="screen-links">
+            <a class="button-link" href="./edit.html">가사 편집</a>
+            <a id="audienceLink" class="button-link" href="/audience/" target="_blank">관객용</a>
+            <a id="singerLink" class="button-link" href="/singer/" target="_blank">가수용</a>
+          </div>
+        </div>
+        <select id="songSelect"></select>
+
         <h2>전체 가사</h2>
         <div class="lyrics-scroll">
           <ol id="lyricsList" class="lyrics-list"></ol>

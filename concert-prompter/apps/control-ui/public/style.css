@@ -453,7 +453,7 @@ button:disabled {
 
 .lyrics-panel h2 {
   flex: 0 0 auto;
-  margin-top: 0;
+  margin: 20px 0 16px;
 }
 
 .lyrics-scroll {
