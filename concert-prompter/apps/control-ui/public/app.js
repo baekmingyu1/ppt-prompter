@@ -7,6 +7,9 @@ const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 
 const connectionStatus = document.getElementById('connectionStatus');
 const songSelect = document.getElementById('songSelect');
+const prevSongButton = document.getElementById('prevSongButton');
+const songStartButton = document.getElementById('songStartButton');
+const nextSongButton = document.getElementById('nextSongButton');
 const songTitle = document.getElementById('songTitle');
 const lineCounter = document.getElementById('lineCounter');
 const currentLyric = document.getElementById('currentLyric');
@@ -82,6 +85,11 @@ function renderSongs(payload) {
   });
 
   songSelect.value = payload.song.id;
+
+  const currentSongIndex = payload.songs.findIndex((song) => song.id === payload.song.id);
+  prevSongButton.disabled = currentSongIndex <= 0;
+  songStartButton.disabled = payload.state.lineIndex <= 0;
+  nextSongButton.disabled = currentSongIndex === -1 || currentSongIndex >= payload.songs.length - 1;
 }
 
 function renderLyricsList(payload) {
@@ -265,6 +273,34 @@ socket.on('errorMessage', (payload) => {
 songSelect.addEventListener('change', () => {
   socket.emit('control:setSong', {
     songId: songSelect.value
+  });
+});
+
+function moveSong(delta) {
+  if (!latestState?.songs?.length) return;
+
+  const currentSongIndex = latestState.songs.findIndex((song) => song.id === latestState.song.id);
+  const nextSongIndex = currentSongIndex + delta;
+  const nextSong = latestState.songs[nextSongIndex];
+
+  if (!nextSong) return;
+
+  socket.emit('control:setSong', {
+    songId: nextSong.id
+  });
+}
+
+prevSongButton.addEventListener('click', () => {
+  moveSong(-1);
+});
+
+nextSongButton.addEventListener('click', () => {
+  moveSong(1);
+});
+
+songStartButton.addEventListener('click', () => {
+  socket.emit('control:setLine', {
+    lineIndex: 0
   });
 });
 

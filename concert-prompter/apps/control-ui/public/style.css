@@ -204,6 +204,7 @@ textarea {
 }
 
 .song-toolbar,
+.song-nav,
 .editor-footer {
   display: flex;
   justify-content: space-between;
@@ -217,6 +218,12 @@ textarea {
 
 .song-toolbar label {
   margin-bottom: 0;
+}
+
+.song-nav {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .screen-links {

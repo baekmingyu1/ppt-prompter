@@ -13,7 +13,14 @@
         <h1>Concert Prompter Control</h1>
         <p>오퍼레이터 제어 화면</p>
       </div>
-      <div id="connectionStatus" class="status">연결 대기</div>
+      <div class="header-actions">
+        <div class="screen-links">
+          <a class="button-link" href="./edit.html">가사 편집</a>
+          <a id="audienceLink" class="button-link" href="/audience/" target="_blank">관객용</a>
+          <a id="singerLink" class="button-link" href="/singer/" target="_blank">가수용</a>
+        </div>
+        <div id="connectionStatus" class="status">연결 대기</div>
+      </div>
     </header>
 
     <div class="control-layout">
@@ -165,10 +172,10 @@
       <aside class="lyrics-panel panel">
         <div class="song-toolbar">
           <label for="songSelect">곡 선택</label>
-          <div class="screen-links">
-            <a class="button-link" href="./edit.html">가사 편집</a>
-            <a id="audienceLink" class="button-link" href="/audience/" target="_blank">관객용</a>
-            <a id="singerLink" class="button-link" href="/singer/" target="_blank">가수용</a>
+          <div class="song-nav">
+            <button id="prevSongButton" class="small-button" type="button">이전 곡</button>
+            <button id="songStartButton" class="small-button" type="button">처음으로</button>
+            <button id="nextSongButton" class="small-button" type="button">다음 곡</button>
           </div>
         </div>
         <select id="songSelect"></select>
