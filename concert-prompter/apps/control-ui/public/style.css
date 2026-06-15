@@ -153,6 +153,17 @@ textarea {
   gap: 12px;
 }
 
+.control-settings-column {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.control-settings-column h3 {
+  grid-column: 1 / -1;
+}
+
 .split-settings {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 220px;
   align-items: start;
@@ -344,7 +355,7 @@ textarea {
 .current {
   flex: 1;
   min-height: 0;
-  font-size: 42px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.3;
   white-space: pre-wrap;
@@ -358,7 +369,7 @@ textarea {
 .next {
   flex: 1;
   min-height: 0;
-  font-size: 26px;
+  font-size: 20px;
   color: #bbb;
   line-height: 1.4;
   white-space: pre-wrap;
@@ -537,6 +548,7 @@ button:disabled {
   .buttons,
   .form-grid,
   .settings-grid,
+  .control-settings-column,
   .split-settings {
     grid-template-columns: 1fr;
   }

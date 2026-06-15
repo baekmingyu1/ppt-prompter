@@ -40,6 +40,14 @@ const fontSizeSingerValue = document.getElementById('fontSizeSingerValue');
 const fontWeightSingerInput = document.getElementById('fontWeightSingerInput');
 const fontWeightSingerValue = document.getElementById('fontWeightSingerValue');
 const fontColorSingerInput = document.getElementById('fontColorSingerInput');
+const controlCurrentFontSizeInput = document.getElementById('controlCurrentFontSizeInput');
+const controlCurrentFontSizeValue = document.getElementById('controlCurrentFontSizeValue');
+const controlNextFontSizeInput = document.getElementById('controlNextFontSizeInput');
+const controlNextFontSizeValue = document.getElementById('controlNextFontSizeValue');
+const singerPreviewCurrentFontSizeInput = document.getElementById('singerPreviewCurrentFontSizeInput');
+const singerPreviewCurrentFontSizeValue = document.getElementById('singerPreviewCurrentFontSizeValue');
+const singerPreviewNextFontSizeInput = document.getElementById('singerPreviewNextFontSizeInput');
+const singerPreviewNextFontSizeValue = document.getElementById('singerPreviewNextFontSizeValue');
 const lineCountSelect = document.getElementById('lineCountSelect');
 const displayStatus = document.getElementById('displayStatus');
 const settingsToggleButton = document.getElementById('settingsToggleButton');
@@ -73,6 +81,32 @@ if (audienceBackgroundHint) {
 
 let latestState = null;
 let settingsRenderLocked = false;
+let pendingControlDisplaySettings = null;
+
+function isControlDisplaySettingsInput(element) {
+  return [
+    controlCurrentFontSizeInput,
+    controlNextFontSizeInput,
+    singerPreviewCurrentFontSizeInput,
+    singerPreviewNextFontSizeInput
+  ].includes(element);
+}
+
+function getControlDisplaySettingsFromInputs() {
+  return {
+    currentFontSizePx: Number(controlCurrentFontSizeInput.value),
+    nextFontSizePx: Number(controlNextFontSizeInput.value),
+    singerPreviewCurrentFontSizePx: Number(singerPreviewCurrentFontSizeInput.value),
+    singerPreviewNextFontSizePx: Number(singerPreviewNextFontSizeInput.value)
+  };
+}
+
+function controlDisplaySettingsMatch(left, right) {
+  return left.currentFontSizePx === right.currentFontSizePx
+    && left.nextFontSizePx === right.nextFontSizePx
+    && left.singerPreviewCurrentFontSizePx === right.singerPreviewCurrentFontSizePx
+    && left.singerPreviewNextFontSizePx === right.singerPreviewNextFontSizePx;
+}
 
 function renderSongs(payload) {
   songSelect.innerHTML = '';
@@ -132,6 +166,24 @@ function renderDisplaySettings(payload) {
   const settings = payload.state.displaySettings || {};
   const audience = settings.audience || settings;
   const singer = settings.singer || settings;
+  const control = settings.control || {};
+  const serverControlDisplaySettings = {
+    currentFontSizePx: Number(control.currentFontSizePx || 20),
+    nextFontSizePx: Number(control.nextFontSizePx || 20),
+    singerPreviewCurrentFontSizePx: Number(control.singerPreviewCurrentFontSizePx || 20),
+    singerPreviewNextFontSizePx: Number(control.singerPreviewNextFontSizePx || 20)
+  };
+
+  if (
+    pendingControlDisplaySettings
+    && controlDisplaySettingsMatch(pendingControlDisplaySettings, serverControlDisplaySettings)
+  ) {
+    pendingControlDisplaySettings = null;
+  }
+
+  const controlDisplaySettings = pendingControlDisplaySettings && isControlDisplaySettingsInput(document.activeElement)
+    ? pendingControlDisplaySettings
+    : serverControlDisplaySettings;
 
   settingsRenderLocked = true;
   fontSizeAudienceInput.value = audience.fontSizeVw;
@@ -146,8 +198,30 @@ function renderDisplaySettings(payload) {
   fontWeightSingerValue.textContent = String(singer.fontWeight || 900);
   fontColorSingerInput.value = singer.fontColor || '#ffffff';
 
+  controlCurrentFontSizeInput.value = controlDisplaySettings.currentFontSizePx;
+  controlCurrentFontSizeValue.textContent = `${controlDisplaySettings.currentFontSizePx}px`;
+  controlNextFontSizeInput.value = controlDisplaySettings.nextFontSizePx;
+  controlNextFontSizeValue.textContent = `${controlDisplaySettings.nextFontSizePx}px`;
+  singerPreviewCurrentFontSizeInput.value = controlDisplaySettings.singerPreviewCurrentFontSizePx;
+  singerPreviewCurrentFontSizeValue.textContent = `${controlDisplaySettings.singerPreviewCurrentFontSizePx}px`;
+  singerPreviewNextFontSizeInput.value = controlDisplaySettings.singerPreviewNextFontSizePx;
+  singerPreviewNextFontSizeValue.textContent = `${controlDisplaySettings.singerPreviewNextFontSizePx}px`;
+  applyControlDisplaySettings(
+    controlDisplaySettings.currentFontSizePx,
+    controlDisplaySettings.nextFontSizePx,
+    controlDisplaySettings.singerPreviewCurrentFontSizePx,
+    controlDisplaySettings.singerPreviewNextFontSizePx
+  );
+
   lineCountSelect.value = String(settings.lineCount || audience.lineCount || singer.lineCount || 1);
   settingsRenderLocked = false;
+}
+
+function applyControlDisplaySettings(currentFontSizePx, nextFontSizePx, singerPreviewCurrentFontSizePx = 20, singerPreviewNextFontSizePx = 20) {
+  currentLyric.style.fontSize = `${currentFontSizePx}px`;
+  nextLyric.style.fontSize = `${nextFontSizePx}px`;
+  singerCurrentLyric.style.fontSize = `${singerPreviewCurrentFontSizePx}px`;
+  singerNextLyric.style.fontSize = `${singerPreviewNextFontSizePx}px`;
 }
 
 function setDisplayStatus(message, type = '') {
@@ -392,6 +466,33 @@ function sendDisplaySettings(settings, target = null) {
     fontSizeSingerValue.textContent = `${payload.fontSizeVw}vw`;
     fontWeightSingerValue.textContent = String(payload.fontWeight);
     sendDisplaySettings(payload, 'singer');
+  });
+});
+
+[controlCurrentFontSizeInput, controlNextFontSizeInput, singerPreviewCurrentFontSizeInput, singerPreviewNextFontSizeInput].forEach((el) => {
+  el.addEventListener('input', () => {
+    if (settingsRenderLocked) return;
+
+    pendingControlDisplaySettings = getControlDisplaySettingsFromInputs();
+
+    controlCurrentFontSizeValue.textContent = `${pendingControlDisplaySettings.currentFontSizePx}px`;
+    controlNextFontSizeValue.textContent = `${pendingControlDisplaySettings.nextFontSizePx}px`;
+    singerPreviewCurrentFontSizeValue.textContent = `${pendingControlDisplaySettings.singerPreviewCurrentFontSizePx}px`;
+    singerPreviewNextFontSizeValue.textContent = `${pendingControlDisplaySettings.singerPreviewNextFontSizePx}px`;
+    applyControlDisplaySettings(
+      pendingControlDisplaySettings.currentFontSizePx,
+      pendingControlDisplaySettings.nextFontSizePx,
+      pendingControlDisplaySettings.singerPreviewCurrentFontSizePx,
+      pendingControlDisplaySettings.singerPreviewNextFontSizePx
+    );
+
+    sendDisplaySettings({
+      ...latestState.state.displaySettings,
+      control: {
+        ...(latestState.state.displaySettings.control || {}),
+        ...pendingControlDisplaySettings
+      }
+    });
   });
 });
 

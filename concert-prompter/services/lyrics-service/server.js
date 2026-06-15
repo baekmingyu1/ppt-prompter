@@ -92,6 +92,12 @@ const DEFAULT_DISPLAY_SETTINGS = {
     fontSizeVw: 6,
     fontWeight: 900,
     fontColor: '#ffffff'
+  },
+  control: {
+    currentFontSizePx: 20,
+    nextFontSizePx: 20,
+    singerPreviewCurrentFontSizePx: 20,
+    singerPreviewNextFontSizePx: 20
   }
 };
 
@@ -201,6 +207,36 @@ function normalizeRoleSettings(settings = {}, role) {
   return normalized;
 }
 
+function normalizeControlSettings(settings = {}) {
+  const currentFontSizePx = Number(settings.currentFontSizePx);
+  const nextFontSizePx = Number(settings.nextFontSizePx);
+  const singerPreviewCurrentFontSizePx = Number(settings.singerPreviewCurrentFontSizePx);
+  const singerPreviewNextFontSizePx = Number(settings.singerPreviewNextFontSizePx);
+
+  if (!Number.isFinite(currentFontSizePx) || currentFontSizePx < 12 || currentFontSizePx > 72) {
+    throw new Error('control current font size must be between 12 and 72.');
+  }
+
+  if (!Number.isFinite(nextFontSizePx) || nextFontSizePx < 12 || nextFontSizePx > 72) {
+    throw new Error('control next font size must be between 12 and 72.');
+  }
+
+  if (!Number.isFinite(singerPreviewCurrentFontSizePx) || singerPreviewCurrentFontSizePx < 12 || singerPreviewCurrentFontSizePx > 72) {
+    throw new Error('singer preview current font size must be between 12 and 72.');
+  }
+
+  if (!Number.isFinite(singerPreviewNextFontSizePx) || singerPreviewNextFontSizePx < 12 || singerPreviewNextFontSizePx > 72) {
+    throw new Error('singer preview next font size must be between 12 and 72.');
+  }
+
+  return {
+    currentFontSizePx,
+    nextFontSizePx,
+    singerPreviewCurrentFontSizePx,
+    singerPreviewNextFontSizePx
+  };
+}
+
 function getDataUrlByteLength(dataUrl) {
   const commaIndex = dataUrl.indexOf(',');
 
@@ -233,6 +269,10 @@ function normalizeDisplaySettings(settings = {}) {
     singer: {
       ...DEFAULT_DISPLAY_SETTINGS.singer,
       ...(settings.singer || {})
+    },
+    control: {
+      ...DEFAULT_DISPLAY_SETTINGS.control,
+      ...(settings.control || {})
     }
   };
 
@@ -254,14 +294,15 @@ function normalizeDisplaySettings(settings = {}) {
   return {
     lineCount,
     audience: normalizeRoleSettings(migratedSettings.audience, 'audience'),
-    singer: normalizeRoleSettings(migratedSettings.singer, 'singer')
+    singer: normalizeRoleSettings(migratedSettings.singer, 'singer'),
+    control: normalizeControlSettings(migratedSettings.control)
   };
 }
 
 function buildDisplaySettingsUpdate(payload = {}) {
   if (payload.target && payload.settings) {
-    if (!['audience', 'singer'].includes(payload.target)) {
-      throw new Error('target은 audience 또는 singer여야 합니다.');
+    if (!['audience', 'singer', 'control'].includes(payload.target)) {
+      throw new Error('target은 audience, singer 또는 control이어야 합니다.');
     }
 
     const nextSettings = {
@@ -271,6 +312,9 @@ function buildDisplaySettingsUpdate(payload = {}) {
       },
       singer: {
         ...state.displaySettings.singer
+      },
+      control: {
+        ...state.displaySettings.control
       }
     };
 
