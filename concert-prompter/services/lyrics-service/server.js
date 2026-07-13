@@ -574,7 +574,8 @@ function buildAudiencePayload() {
       lineCount: state.displaySettings.lineCount
     },
     current: currentLines[0] || '',
-    currentLines
+    currentLines,
+    lyrics
   };
 }
 

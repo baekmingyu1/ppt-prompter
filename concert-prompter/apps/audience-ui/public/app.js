@@ -4,6 +4,12 @@ const LYRICS_SERVICE_URL = PROMPTER_CONFIG.lyricsServiceUrl || '';
 const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 const lyric = document.getElementById('lyric');
 const pptSlide = document.getElementById('pptSlide');
+const lyricMeasure = document.createElement('div');
+let audienceFontSizeVw = 6;
+let latestPayload = null;
+
+lyricMeasure.className = 'lyric lyric-measure';
+lyric.parentElement.appendChild(lyricMeasure);
 
 function getAssetUrl(url) {
   if (!url || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
@@ -19,10 +25,46 @@ function applyDisplaySettings(settings = {}) {
   const fontColor = settings.fontColor || '#ffffff';
   const verticalPositionPercent = Number(settings.verticalPositionPercent || 50);
 
-  lyric.style.fontSize = `${fontSizeVw}vw`;
+  audienceFontSizeVw = fontSizeVw;
+  lyric.style.fontSize = `${audienceFontSizeVw}vw`;
   lyric.style.fontWeight = String(fontWeight);
   lyric.style.color = fontColor;
   lyric.style.top = `${verticalPositionPercent}%`;
+}
+
+function getLongestLine(lines = []) {
+  return lines.reduce((longest, line) => {
+    const nextLine = String(line || '');
+    return nextLine.length > longest.length ? nextLine : longest;
+  }, '');
+}
+
+function fitLyricsToSongWidth() {
+  requestAnimationFrame(() => {
+    if (lyric.hidden) return;
+
+    const lines = latestPayload?.lyrics?.length
+      ? latestPayload.lyrics
+      : latestPayload?.currentLines || [];
+    const longestLine = getLongestLine(lines);
+
+    if (!longestLine) {
+      lyric.style.fontSize = `${audienceFontSizeVw}vw`;
+      return;
+    }
+
+    let nextFontSize = audienceFontSizeVw;
+    lyricMeasure.style.fontSize = `${nextFontSize}vw`;
+    lyricMeasure.style.fontWeight = lyric.style.fontWeight;
+    lyricMeasure.textContent = longestLine;
+
+    while (lyricMeasure.scrollWidth > lyricMeasure.clientWidth && nextFontSize > 2.5) {
+      nextFontSize = Math.max(nextFontSize - 0.1, 2.5);
+      lyricMeasure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
+    }
+
+    lyric.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
+  });
 }
 
 function applyBackground(settings = {}) {
@@ -40,6 +82,7 @@ function applyBackground(settings = {}) {
 }
 
 function render(payload) {
+  latestPayload = payload;
   applyDisplaySettings(payload.displaySettings);
   applyBackground(payload.displaySettings);
 
@@ -60,6 +103,7 @@ function render(payload) {
   }
 
   lyric.textContent = payload.currentLines?.length ? payload.currentLines.join('\n') : '';
+  fitLyricsToSongWidth();
 }
 
 socket.on('connect', () => {
@@ -77,3 +121,5 @@ document.addEventListener('dblclick', () => {
     document.documentElement.requestFullscreen();
   }
 });
+
+window.addEventListener('resize', fitLyricsToSongWidth);
