@@ -5,6 +5,16 @@ const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 
 const currentLyric = document.getElementById('currentLyric');
 const nextLyric = document.getElementById('nextLyric');
+const pptSlide = document.getElementById('pptSlide');
+const lyricSections = Array.from(document.querySelectorAll('.current-section, .next-section'));
+
+function getAssetUrl(url) {
+  if (!url || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url || '';
+  }
+
+  return `${LYRICS_SERVICE_URL}${url}`;
+}
 
 function applyDisplaySettings(settings = {}) {
   const singerSettings = settings.singer || settings;
@@ -22,10 +32,27 @@ function applyDisplaySettings(settings = {}) {
     currentLyric.style.fontWeight = singerSettings.fontWeight;
     nextLyric.style.fontWeight = Math.max(singerSettings.fontWeight - 200, 300);
   }
+
+  document.documentElement.style.setProperty('--singer-lyric-y', `${singerSettings.verticalPositionPercent || 50}%`);
 }
 
 function render(payload) {
   applyDisplaySettings(payload.displaySettings);
+
+  if (payload.viewMode === 'ppt' && !payload.separateControlEnabled) {
+    lyricSections.forEach((section) => {
+      section.hidden = true;
+    });
+    pptSlide.hidden = false;
+    pptSlide.src = getAssetUrl(payload.ppt?.currentSlide?.url);
+    return;
+  }
+
+  lyricSections.forEach((section) => {
+    section.hidden = false;
+  });
+  pptSlide.hidden = true;
+  pptSlide.removeAttribute('src');
 
   if (payload.blank) {
     currentLyric.textContent = '';

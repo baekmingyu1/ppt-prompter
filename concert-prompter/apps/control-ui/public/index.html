@@ -71,6 +71,7 @@
           <div class="current-box">
             <div class="label">현재 가사</div>
             <div id="currentLyric" class="current">-</div>
+            <img id="controlPptPreview" class="control-ppt-preview" alt="PPT preview" hidden />
           </div>
 
           <div class="next-box">
@@ -84,6 +85,26 @@
           <button id="nextButton" type="button" class="primary">다음 줄</button>
           <button id="blankOnButton" type="button" class="danger">빈 화면 ON</button>
           <button id="blankOffButton" type="button">빈 화면 OFF</button>
+        </section>
+
+        <section class="panel ppt-control-panel">
+          <div class="section-header">
+            <h2>PPT 제어</h2>
+            <span id="pptStatus" class="save-status">PPT 없음</span>
+          </div>
+
+          <label>
+            PPT 업로드
+            <input id="pptInput" type="file" accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+            <div class="hint">PowerPoint가 설치된 PC에서 PPT/PPTX를 슬라이드 이미지로 변환합니다.</div>
+          </label>
+
+          <div class="buttons ppt-buttons">
+            <button id="lyricsModeButton" type="button">가사 화면</button>
+            <button id="pptModeButton" type="button" class="primary">PPT 화면</button>
+            <button id="prevPptButton" type="button">이전 슬라이드</button>
+            <button id="nextPptButton" type="button">다음 슬라이드</button>
+          </div>
         </section>
 
         <section class="panel">
@@ -120,6 +141,14 @@
                 폰트 색상
                 <input id="fontColorAudienceInput" type="color" />
               </label>
+
+              <label>
+                가사 세로 위치
+                <div class="range-control">
+                  <input id="verticalPositionAudienceInput" type="range" min="10" max="90" step="1" />
+                  <span id="verticalPositionAudienceValue">50%</span>
+                </div>
+              </label>
             </div>
 
             <div class="settings-column">
@@ -143,6 +172,14 @@
               <label>
                 폰트 색상
                 <input id="fontColorSingerInput" type="color" />
+              </label>
+
+              <label>
+                가사 세로 위치
+                <div class="range-control">
+                  <input id="verticalPositionSingerInput" type="range" min="10" max="90" step="1" />
+                  <span id="verticalPositionSingerValue">50%</span>
+                </div>
               </label>
             </div>
 

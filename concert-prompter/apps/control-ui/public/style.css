@@ -305,6 +305,23 @@ textarea {
   margin-bottom: 0;
 }
 
+.current-box.is-ppt-preview {
+  padding: 12px;
+}
+
+.current-box.is-ppt-preview .label {
+  margin-bottom: 8px;
+}
+
+.next-box.is-ppt-mode {
+  flex: 0 0 auto;
+  min-height: 78px;
+}
+
+.next-box.is-ppt-mode .next {
+  flex: 0 0 auto;
+}
+
 .singer-control-panel {
   display: grid;
   gap: 12px;
@@ -342,6 +359,29 @@ textarea {
 }
 
 .singer-buttons {
+  grid-template-columns: repeat(2, 1fr);
+  margin-bottom: 0;
+}
+
+.control-ppt-preview {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #000;
+}
+
+.current-box.is-ppt-preview .control-ppt-preview {
+  flex: 1;
+}
+
+.ppt-control-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.ppt-buttons {
   grid-template-columns: repeat(2, 1fr);
   margin-bottom: 0;
 }

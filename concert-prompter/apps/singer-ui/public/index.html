@@ -8,15 +8,19 @@
 </head>
 <body>
   <main class="screen">
-    <section class="current-section">
-      <div class="label">CURRENT</div>
-      <div id="currentLyric" class="current-lyric"></div>
-    </section>
+    <div id="lyricLayout" class="lyric-layout">
+      <section class="current-section">
+        <div class="label">CURRENT</div>
+        <div id="currentLyric" class="current-lyric"></div>
+      </section>
 
-    <section class="next-section">
-      <div class="label">NEXT</div>
-      <div id="nextLyric" class="next-lyric"></div>
-    </section>
+      <section class="next-section">
+        <div class="label">NEXT</div>
+        <div id="nextLyric" class="next-lyric"></div>
+      </section>
+    </div>
+
+    <img id="pptSlide" class="ppt-slide" alt="PPT slide" hidden />
   </main>
 
   <script src="/config.js"></script>

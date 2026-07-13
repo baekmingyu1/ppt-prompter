@@ -3,6 +3,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getClientConfig, getPortEnv } from './runtime.js';
 
+function setNoStore(res) {
+  res.setHeader('Cache-Control', 'no-store');
+}
+
 export function createStaticUiServer({
   importMetaUrl,
   serviceName,
@@ -17,11 +21,14 @@ export function createStaticUiServer({
   const clientConfig = getClientConfig(clientConfigDefaults);
 
   app.get('/config.js', (req, res) => {
+    setNoStore(res);
     res.type('application/javascript');
     res.send(`window.__PROMPTER_CONFIG__ = ${JSON.stringify(clientConfig)};`);
   });
 
-  app.use(express.static(publicPath));
+  app.use(express.static(publicPath, {
+    setHeaders: setNoStore
+  }));
 
   app.get(['/control', '/control/', '/audience', '/audience/', '/singer', '/singer/'], (req, res) => {
     res.redirect('/');

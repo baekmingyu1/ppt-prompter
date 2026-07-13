@@ -14,10 +14,17 @@ const songTitle = document.getElementById('songTitle');
 const lineCounter = document.getElementById('lineCounter');
 const currentLyric = document.getElementById('currentLyric');
 const nextLyric = document.getElementById('nextLyric');
+const controlPptPreview = document.getElementById('controlPptPreview');
 const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
+const pptInput = document.getElementById('pptInput');
+const pptStatus = document.getElementById('pptStatus');
+const lyricsModeButton = document.getElementById('lyricsModeButton');
+const pptModeButton = document.getElementById('pptModeButton');
+const prevPptButton = document.getElementById('prevPptButton');
+const nextPptButton = document.getElementById('nextPptButton');
 const singerControlToggleButton = document.getElementById('singerControlToggleButton');
 const singerControlStatus = document.getElementById('singerControlStatus');
 const singerLineCounter = document.getElementById('singerLineCounter');
@@ -32,6 +39,8 @@ const fontSizeAudienceValue = document.getElementById('fontSizeAudienceValue');
 const fontWeightAudienceInput = document.getElementById('fontWeightAudienceInput');
 const fontWeightAudienceValue = document.getElementById('fontWeightAudienceValue');
 const fontColorAudienceInput = document.getElementById('fontColorAudienceInput');
+const verticalPositionAudienceInput = document.getElementById('verticalPositionAudienceInput');
+const verticalPositionAudienceValue = document.getElementById('verticalPositionAudienceValue');
 const audienceBackgroundInput = document.getElementById('audienceBackgroundInput');
 const audienceBackgroundStatus = document.getElementById('audienceBackgroundStatus');
 const audienceBackgroundClearButton = document.getElementById('audienceBackgroundClearButton');
@@ -42,6 +51,8 @@ const fontSizeSingerValue = document.getElementById('fontSizeSingerValue');
 const fontWeightSingerInput = document.getElementById('fontWeightSingerInput');
 const fontWeightSingerValue = document.getElementById('fontWeightSingerValue');
 const fontColorSingerInput = document.getElementById('fontColorSingerInput');
+const verticalPositionSingerInput = document.getElementById('verticalPositionSingerInput');
+const verticalPositionSingerValue = document.getElementById('verticalPositionSingerValue');
 const controlCurrentFontSizeInput = document.getElementById('controlCurrentFontSizeInput');
 const controlCurrentFontSizeValue = document.getElementById('controlCurrentFontSizeValue');
 const controlNextFontSizeInput = document.getElementById('controlNextFontSizeInput');
@@ -75,6 +86,14 @@ if (audienceLink) {
 
 if (singerLink) {
   singerLink.href = getScreenUrl(PROMPTER_CONFIG.singerUrl, 3002, '/singer/');
+}
+
+function getAssetUrl(url) {
+  if (!url || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url || '';
+  }
+
+  return `${LYRICS_SERVICE_URL}${url}`;
 }
 
 if (audienceBackgroundHint) {
@@ -193,6 +212,8 @@ function renderDisplaySettings(payload) {
   fontWeightAudienceInput.value = audience.fontWeight || 800;
   fontWeightAudienceValue.textContent = String(audience.fontWeight || 800);
   fontColorAudienceInput.value = audience.fontColor || '#ffffff';
+  verticalPositionAudienceInput.value = audience.verticalPositionPercent || 50;
+  verticalPositionAudienceValue.textContent = `${audience.verticalPositionPercent || 50}%`;
   audienceBackgroundStatus.textContent = audience.backgroundImage ? '현재 배경 적용됨' : '현재 배경 없음';
   audienceBackgroundClearButton.disabled = !audience.backgroundImage;
 
@@ -201,6 +222,8 @@ function renderDisplaySettings(payload) {
   fontWeightSingerInput.value = singer.fontWeight || 900;
   fontWeightSingerValue.textContent = String(singer.fontWeight || 900);
   fontColorSingerInput.value = singer.fontColor || '#ffffff';
+  verticalPositionSingerInput.value = singer.verticalPositionPercent || 50;
+  verticalPositionSingerValue.textContent = `${singer.verticalPositionPercent || 50}%`;
 
   controlCurrentFontSizeInput.value = controlDisplaySettings.currentFontSizePx;
   controlCurrentFontSizeValue.textContent = `${controlDisplaySettings.currentFontSizePx}px`;
@@ -310,6 +333,36 @@ function renderSingerControl(payload) {
   updateSingerLyricScrollState();
 }
 
+function renderPptControl(payload) {
+  const ppt = payload.ppt || {};
+  const hasPpt = Array.isArray(ppt.slides) && ppt.slides.length > 0;
+  const isPptMode = payload.viewMode === 'ppt';
+
+  pptStatus.textContent = hasPpt
+    ? `${ppt.filename || 'PPT'} ${Number(ppt.slideIndex || 0) + 1} / ${ppt.slides.length}`
+    : 'PPT 없음';
+
+  lyricsModeButton.classList.toggle('primary', !isPptMode);
+  pptModeButton.classList.toggle('primary', isPptMode);
+  pptModeButton.disabled = !hasPpt;
+  prevPptButton.disabled = !hasPpt || Number(ppt.slideIndex || 0) <= 0;
+  nextPptButton.disabled = !hasPpt || Number(ppt.slideIndex || 0) >= ppt.slides.length - 1;
+  currentLyric.closest('.current-box')?.classList.toggle('is-ppt-preview', isPptMode && hasPpt);
+  nextLyric.closest('.next-box')?.classList.toggle('is-ppt-mode', isPptMode && hasPpt);
+
+  if (isPptMode && hasPpt) {
+    currentLyric.hidden = true;
+    nextLyric.textContent = 'PPT 화면 표시 중';
+    controlPptPreview.hidden = false;
+    controlPptPreview.src = getAssetUrl(ppt.currentSlide?.url);
+    return;
+  }
+
+  currentLyric.hidden = false;
+  controlPptPreview.hidden = true;
+  controlPptPreview.removeAttribute('src');
+}
+
 function render(payload) {
   latestState = payload;
 
@@ -324,6 +377,7 @@ function render(payload) {
   nextLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.nextLines);
   updateCurrentLyricScrollState();
   renderSingerControl(payload);
+  renderPptControl(payload);
 }
 
 socket.on('connect', () => {
@@ -402,6 +456,26 @@ blankOffButton.addEventListener('click', () => {
   });
 });
 
+lyricsModeButton.addEventListener('click', () => {
+  socket.emit('control:setViewMode', {
+    mode: 'lyrics'
+  });
+});
+
+pptModeButton.addEventListener('click', () => {
+  socket.emit('control:setViewMode', {
+    mode: 'ppt'
+  });
+});
+
+prevPptButton.addEventListener('click', () => {
+  socket.emit('control:prevPptSlide');
+});
+
+nextPptButton.addEventListener('click', () => {
+  socket.emit('control:nextPptSlide');
+});
+
 singerControlToggleButton.addEventListener('click', () => {
   socket.emit('control:setSingerControl', {
     enabled: !(latestState?.singerControl?.enabled || false)
@@ -441,34 +515,38 @@ function sendDisplaySettings(settings, target = null) {
   });
 }
 
-[fontSizeAudienceInput, fontWeightAudienceInput, fontColorAudienceInput].forEach((el) => {
+[fontSizeAudienceInput, fontWeightAudienceInput, fontColorAudienceInput, verticalPositionAudienceInput].forEach((el) => {
   el.addEventListener('input', () => {
     if (settingsRenderLocked) return;
 
     const payload = {
       fontSizeVw: Number(fontSizeAudienceInput.value),
       fontWeight: Number(fontWeightAudienceInput.value),
-      fontColor: fontColorAudienceInput.value
+      fontColor: fontColorAudienceInput.value,
+      verticalPositionPercent: Number(verticalPositionAudienceInput.value)
     };
 
     fontSizeAudienceValue.textContent = `${payload.fontSizeVw}vw`;
     fontWeightAudienceValue.textContent = String(payload.fontWeight);
+    verticalPositionAudienceValue.textContent = `${payload.verticalPositionPercent}%`;
     sendDisplaySettings(payload, 'audience');
   });
 });
 
-[fontSizeSingerInput, fontWeightSingerInput, fontColorSingerInput].forEach((el) => {
+[fontSizeSingerInput, fontWeightSingerInput, fontColorSingerInput, verticalPositionSingerInput].forEach((el) => {
   el.addEventListener('input', () => {
     if (settingsRenderLocked) return;
 
     const payload = {
       fontSizeVw: Number(fontSizeSingerInput.value),
       fontWeight: Number(fontWeightSingerInput.value),
-      fontColor: fontColorSingerInput.value
+      fontColor: fontColorSingerInput.value,
+      verticalPositionPercent: Number(verticalPositionSingerInput.value)
     };
 
     fontSizeSingerValue.textContent = `${payload.fontSizeVw}vw`;
     fontWeightSingerValue.textContent = String(payload.fontWeight);
+    verticalPositionSingerValue.textContent = `${payload.verticalPositionPercent}%`;
     sendDisplaySettings(payload, 'singer');
   });
 });
@@ -561,6 +639,45 @@ audienceBackgroundClearButton.addEventListener('click', () => {
   sendDisplaySettings({
     backgroundImage: ''
   }, 'audience');
+});
+
+pptInput.addEventListener('change', async (event) => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!/\.(ppt|pptx)$/i.test(file.name)) {
+    alert('PPT 또는 PPTX 파일만 업로드할 수 있습니다.');
+    pptInput.value = '';
+    return;
+  }
+
+  pptStatus.textContent = 'PPT 변환 중';
+
+  try {
+    const resp = await fetch(`${LYRICS_SERVICE_URL}/api/control/ppt/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Filename': encodeURIComponent(file.name)
+      },
+      body: file
+    });
+
+    const json = await resp.json();
+    if (!json.ok) {
+      alert(json.message || 'PPT 업로드 실패');
+      pptStatus.textContent = 'PPT 업로드 실패';
+      pptInput.value = '';
+      return;
+    }
+
+    pptStatus.textContent = 'PPT 변환 완료';
+    pptInput.value = '';
+  } catch (err) {
+    alert('PPT 업로드 중 오류가 발생했습니다.');
+    pptStatus.textContent = 'PPT 업로드 실패';
+    pptInput.value = '';
+  }
 });
 
 document.addEventListener('keydown', (event) => {

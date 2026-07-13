@@ -5,6 +5,8 @@ import { Server } from 'socket.io';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import {
   getClientConfig,
   getPortEnv,
@@ -12,6 +14,7 @@ import {
 } from '../../config/runtime.js';
 
 const PORT = getPortEnv('PORT', 4000);
+const execFileAsync = promisify(execFile);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,7 +23,11 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const CONTROL_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'control-ui', 'public');
 const AUDIENCE_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'audience-ui', 'public');
 const SINGER_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'singer-ui', 'public');
-const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '20mb';
+const UPLOADS_PATH = path.join(__dirname, 'uploads');
+const PPT_UPLOADS_PATH = path.join(UPLOADS_PATH, 'ppt');
+const MAX_PPT_UPLOAD_MB = getPositiveNumberEnv('MAX_PPT_UPLOAD_MB', 50);
+const MAX_PPT_UPLOAD_BYTES = MAX_PPT_UPLOAD_MB * 1024 * 1024;
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || `${Math.ceil(MAX_PPT_UPLOAD_MB * 1.4)}mb`;
 const MAX_BACKGROUND_IMAGE_MB = getPositiveNumberEnv('MAX_BACKGROUND_IMAGE_MB', 10);
 const MAX_BACKGROUND_IMAGE_BYTES = MAX_BACKGROUND_IMAGE_MB * 1024 * 1024;
 const SOCKET_MAX_BUFFER_MB = getPositiveNumberEnv('SOCKET_MAX_BUFFER_MB', 20);
@@ -29,6 +36,10 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
 const app = express();
 const server = http.createServer(app);
+
+function setNoStore(res) {
+  res.setHeader('Cache-Control', 'no-store');
+}
 
 const clientConfig = getClientConfig({
   lyricsServiceUrl: '',
@@ -44,6 +55,7 @@ app.use(express.json({
 }));
 
 app.get('/config.js', (req, res) => {
+  setNoStore(res);
   res.type('application/javascript');
   res.send(`window.__PROMPTER_CONFIG__ = ${JSON.stringify(clientConfig)};`);
 });
@@ -52,9 +64,16 @@ app.get('/', (req, res) => {
   res.redirect('/control/');
 });
 
-app.use('/control', express.static(CONTROL_UI_PATH));
-app.use('/audience', express.static(AUDIENCE_UI_PATH));
-app.use('/singer', express.static(SINGER_UI_PATH));
+app.use('/control', express.static(CONTROL_UI_PATH, {
+  setHeaders: setNoStore
+}));
+app.use('/audience', express.static(AUDIENCE_UI_PATH, {
+  setHeaders: setNoStore
+}));
+app.use('/singer', express.static(SINGER_UI_PATH, {
+  setHeaders: setNoStore
+}));
+app.use('/uploads', express.static(UPLOADS_PATH));
 
 app.get('/control', (req, res) => {
   res.redirect('/control/');
@@ -86,12 +105,14 @@ const DEFAULT_DISPLAY_SETTINGS = {
     fontSizeVw: 6,
     fontWeight: 800,
     fontColor: '#ffffff',
-    backgroundImage: ''
+    backgroundImage: '',
+    verticalPositionPercent: 50
   },
   singer: {
     fontSizeVw: 6,
     fontWeight: 900,
-    fontColor: '#ffffff'
+    fontColor: '#ffffff',
+    verticalPositionPercent: 50
   },
   control: {
     currentFontSizePx: 20,
@@ -105,6 +126,12 @@ let songs = [];
 let state = {
   songId: null,
   lineIndex: 0,
+  viewMode: 'lyrics',
+  ppt: {
+    filename: '',
+    slideIndex: 0,
+    slides: []
+  },
   singerControl: {
     enabled: false,
     lineIndex: 0,
@@ -149,6 +176,126 @@ function getVisibleLines(lyrics, startIndex, count) {
   return lyrics.slice(startIndex, startIndex + count);
 }
 
+function getCurrentPptSlide() {
+  return state.ppt.slides[state.ppt.slideIndex] || null;
+}
+
+function normalizeViewMode(mode) {
+  return mode === 'ppt' ? 'ppt' : 'lyrics';
+}
+
+function clampPptSlideIndex(index) {
+  const maxIndex = Math.max(state.ppt.slides.length - 1, 0);
+  return Math.min(Math.max(index, 0), maxIndex);
+}
+
+function getDataUrlParts(dataUrl) {
+  const raw = String(dataUrl || '');
+  const commaIndex = raw.indexOf(',');
+
+  if (commaIndex === -1 || !raw.startsWith('data:')) {
+    throw new Error('Invalid data URL.');
+  }
+
+  const metadata = raw.slice(0, commaIndex);
+  const body = raw.slice(commaIndex + 1);
+
+  if (!metadata.includes(';base64')) {
+    throw new Error('Only base64 data URLs are supported.');
+  }
+
+  return {
+    metadata,
+    body
+  };
+}
+
+function getSafePptExtension(filename) {
+  const extension = path.extname(String(filename || '')).toLowerCase();
+
+  if (!['.ppt', '.pptx'].includes(extension)) {
+    throw new Error('PPT 또는 PPTX 파일만 업로드할 수 있습니다.');
+  }
+
+  return extension;
+}
+
+async function convertPptToImages(inputPath, outputDir) {
+  const script = `
+$ErrorActionPreference = 'Stop'
+$inputPath = [System.IO.Path]::GetFullPath('${inputPath.replaceAll("'", "''")}')
+$outputDir = [System.IO.Path]::GetFullPath('${outputDir.replaceAll("'", "''")}')
+$powerPoint = $null
+$presentation = $null
+try {
+  New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+  $powerPoint = New-Object -ComObject PowerPoint.Application
+  $presentation = $powerPoint.Presentations.Open($inputPath, $true, $false, $false)
+  $presentation.Export($outputDir, 'PNG', 1920, 1080)
+} finally {
+  if ($presentation -ne $null) { $presentation.Close() | Out-Null }
+  if ($powerPoint -ne $null) { $powerPoint.Quit() | Out-Null }
+}
+`;
+
+  await execFileAsync('powershell', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    script
+  ], {
+    windowsHide: true,
+    timeout: 120000
+  });
+}
+
+async function uploadPpt({ filename, fileBuffer }) {
+  const extension = getSafePptExtension(filename);
+  const pptBuffer = Buffer.isBuffer(fileBuffer) ? fileBuffer : Buffer.from(fileBuffer || []);
+
+  if (pptBuffer.byteLength === 0) {
+    throw new Error('PPT 파일이 비어 있습니다.');
+  }
+
+  if (pptBuffer.byteLength > MAX_PPT_UPLOAD_BYTES) {
+    throw new Error(`PPT 파일은 ${MAX_PPT_UPLOAD_MB}MB 이하만 업로드할 수 있습니다.`);
+  }
+
+  const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const uploadDir = path.join(PPT_UPLOADS_PATH, uploadId);
+  const inputPath = path.join(uploadDir, `source${extension}`);
+  const slideDir = path.join(uploadDir, 'slides');
+
+  await fs.mkdir(uploadDir, {
+    recursive: true
+  });
+  await fs.writeFile(inputPath, pptBuffer);
+  await convertPptToImages(inputPath, slideDir);
+
+  const slideFiles = (await fs.readdir(slideDir))
+    .filter((item) => item.toLowerCase().endsWith('.png'))
+    .sort((a, b) => a.localeCompare(b, undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    }));
+
+  if (slideFiles.length === 0) {
+    throw new Error('PPT 슬라이드 변환 결과가 없습니다.');
+  }
+
+  state.ppt = {
+    filename: String(filename || 'presentation.pptx'),
+    slideIndex: 0,
+    slides: slideFiles.map((item, index) => ({
+      index,
+      url: `/uploads/ppt/${uploadId}/slides/${encodeURIComponent(item)}`
+    }))
+  };
+  state.viewMode = 'ppt';
+  touchState();
+}
+
 function getSingerMessageLines() {
   return String(state.singerControl.message || '')
     .split(/\r?\n/)
@@ -171,6 +318,7 @@ function normalizeRoleSettings(settings = {}, role) {
   const fontSizeVw = Number(settings.fontSizeVw);
   const fontWeight = Number(settings.fontWeight);
   const fontColor = String(settings.fontColor || '').trim();
+  const verticalPositionPercent = Number(settings.verticalPositionPercent);
 
   if (!Number.isFinite(fontSizeVw) || fontSizeVw < 3 || fontSizeVw > 12) {
     throw new Error('폰트 크기는 3부터 12 사이여야 합니다.');
@@ -184,10 +332,15 @@ function normalizeRoleSettings(settings = {}, role) {
     throw new Error('폰트 색상은 #RRGGBB 형식이어야 합니다.');
   }
 
+  if (!Number.isFinite(verticalPositionPercent) || verticalPositionPercent < 10 || verticalPositionPercent > 90) {
+    throw new Error('vertical position must be between 10 and 90.');
+  }
+
   const normalized = {
     fontSizeVw,
     fontWeight,
-    fontColor
+    fontColor,
+    verticalPositionPercent
   };
 
   if (role === 'audience') {
@@ -379,6 +532,11 @@ function buildControlPayload() {
     currentLines,
     nextLines,
     lyrics,
+    viewMode: state.viewMode,
+    ppt: {
+      ...state.ppt,
+      currentSlide: getCurrentPptSlide()
+    },
     singerControl: {
       enabled: state.singerControl.enabled,
       lineIndex: singerLineIndex,
@@ -404,6 +562,13 @@ function buildAudiencePayload() {
     artist: song.artist,
     lineIndex: state.lineIndex,
     totalLines: lyrics.length,
+    viewMode: state.viewMode,
+    ppt: {
+      filename: state.ppt.filename,
+      slideIndex: state.ppt.slideIndex,
+      totalSlides: state.ppt.slides.length,
+      currentSlide: getCurrentPptSlide()
+    },
     displaySettings: {
       ...state.displaySettings.audience,
       lineCount: state.displaySettings.lineCount
@@ -433,6 +598,13 @@ function buildSingerPayload() {
     artist: song.artist,
     lineIndex,
     totalLines: lyrics.length,
+    viewMode: state.viewMode,
+    ppt: {
+      filename: state.ppt.filename,
+      slideIndex: state.ppt.slideIndex,
+      totalSlides: state.ppt.slides.length,
+      currentSlide: getCurrentPptSlide()
+    },
     separateControlEnabled: state.singerControl.enabled,
     displaySettings: {
       ...state.displaySettings.singer,
@@ -461,7 +633,6 @@ function setSong(songId) {
   state.songId = songId;
   state.lineIndex = 0;
   syncSingerLineIndex(getCurrentSong());
-  state.blank = false;
   touchState();
 }
 
@@ -469,7 +640,6 @@ function moveLine(delta) {
   const song = getCurrentSong();
   state.lineIndex = clampLineIndex(state.lineIndex + delta * state.displaySettings.lineCount, song);
   syncSingerLineIndex(song);
-  state.blank = false;
   touchState();
 }
 
@@ -477,7 +647,6 @@ function setLineIndex(index) {
   const song = getCurrentSong();
   state.lineIndex = clampLineIndex(index, song);
   syncSingerLineIndex(song);
-  state.blank = false;
   touchState();
 }
 
@@ -496,6 +665,27 @@ function setSingerMessage(message) {
 
 function toggleBlank(blank) {
   state.blank = Boolean(blank);
+  touchState();
+}
+
+function setViewMode(mode) {
+  state.viewMode = normalizeViewMode(mode);
+  touchState();
+}
+
+function movePptSlide(delta) {
+  if (state.ppt.slides.length === 0) return;
+
+  state.ppt.slideIndex = clampPptSlideIndex(state.ppt.slideIndex + delta);
+  state.viewMode = 'ppt';
+  touchState();
+}
+
+function setPptSlideIndex(index) {
+  if (state.ppt.slides.length === 0) return;
+
+  state.ppt.slideIndex = clampPptSlideIndex(index);
+  state.viewMode = 'ppt';
   touchState();
 }
 
@@ -525,7 +715,6 @@ async function updateSong({ songId, title, artist, lyrics }) {
   if (state.songId === song.id) {
     state.lineIndex = clampLineIndex(state.lineIndex, song);
     syncSingerLineIndex(song);
-    state.blank = false;
   }
 
   touchState();
@@ -667,6 +856,32 @@ app.post('/api/control/audience/background', (req, res) => {
   }
 });
 
+app.post('/api/control/ppt/upload', express.raw({
+  type: 'application/octet-stream',
+  limit: `${MAX_PPT_UPLOAD_MB}mb`
+}), async (req, res) => {
+  try {
+    const encodedFilename = String(req.headers['x-filename'] || '');
+    const filename = encodedFilename ? decodeURIComponent(encodedFilename) : '';
+
+    await uploadPpt({
+      filename,
+      fileBuffer: req.body
+    });
+    emitState();
+
+    res.json({
+      ok: true,
+      ppt: state.ppt
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
 
 app.post('/api/control/song/update', async (req, res) => {
   try {
@@ -683,6 +898,22 @@ app.post('/api/control/song/update', async (req, res) => {
       message: error.message
     });
   }
+});
+
+app.use((error, req, res, next) => {
+  if (!error) {
+    next();
+    return;
+  }
+
+  const isPayloadTooLarge = error.type === 'entity.too.large' || error.status === 413;
+
+  res.status(isPayloadTooLarge ? 413 : 400).json({
+    ok: false,
+    message: isPayloadTooLarge
+      ? `업로드 파일은 ${MAX_PPT_UPLOAD_MB}MB 이하만 사용할 수 있습니다.`
+      : (error.message || '요청 처리 중 오류가 발생했습니다.')
+  });
 });
 
 io.on('connection', (socket) => {
@@ -748,6 +979,35 @@ io.on('connection', (socket) => {
 
   socket.on('control:blank', ({ blank }) => {
     toggleBlank(blank);
+    emitState();
+  });
+
+  socket.on('control:setViewMode', ({ mode }) => {
+    setViewMode(mode);
+    emitState();
+  });
+
+  socket.on('control:nextPptSlide', () => {
+    movePptSlide(1);
+    emitState();
+  });
+
+  socket.on('control:prevPptSlide', () => {
+    movePptSlide(-1);
+    emitState();
+  });
+
+  socket.on('control:setPptSlide', ({ slideIndex }) => {
+    const parsedSlideIndex = Number(slideIndex);
+
+    if (!Number.isInteger(parsedSlideIndex)) {
+      socket.emit('errorMessage', {
+        message: 'slideIndex는 정수여야 합니다.'
+      });
+      return;
+    }
+
+    setPptSlideIndex(parsedSlideIndex);
     emitState();
   });
 
