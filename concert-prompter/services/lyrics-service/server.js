@@ -1206,6 +1206,26 @@ async function moveProgramItem(programItemId, direction) {
   touchState();
 }
 
+async function reorderProgramItem(programItemId, targetIndex) {
+  const itemIndex = getProgramItemIndex(programItemId);
+  const normalizedTargetIndex = Number(targetIndex);
+
+  if (
+    itemIndex === -1
+    || !Number.isInteger(normalizedTargetIndex)
+    || normalizedTargetIndex < 0
+    || normalizedTargetIndex >= programItems.length
+    || itemIndex === normalizedTargetIndex
+  ) {
+    return;
+  }
+
+  const [item] = programItems.splice(itemIndex, 1);
+  programItems.splice(normalizedTargetIndex, 0, item);
+  await saveProgram();
+  touchState();
+}
+
 function applyProgramItem(programItemId) {
   const item = programItems.find((entry) => entry.id === programItemId);
 
@@ -1933,6 +1953,31 @@ io.on('connection', (socket) => {
   socket.on('control:moveProgramItem', async ({ programItemId, direction }, callback) => {
     try {
       await moveProgramItem(String(programItemId || ''), Number(direction));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:reorderProgramItem', async ({ programItemId, targetIndex }, callback) => {
+    try {
+      await reorderProgramItem(String(programItemId || ''), Number(targetIndex));
       emitState();
 
       if (typeof callback === 'function') {

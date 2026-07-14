@@ -712,13 +712,15 @@ textarea {
 
 .program-actions,
 .program-toolbar,
+.program-sequence-actions,
 .program-note-form {
   display: grid;
   gap: 8px;
 }
 
 .program-actions,
-.program-toolbar {
+.program-toolbar,
+.program-sequence-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -734,6 +736,20 @@ textarea {
   margin: 0;
   overflow-y: auto;
   list-style: none;
+}
+
+.program-list li {
+  cursor: grab;
+}
+
+.program-list li.dragging {
+  opacity: 0.42;
+}
+
+.program-list li.drag-over .program-item-button {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.36);
+  transform: translateY(2px);
 }
 
 .program-item-button {

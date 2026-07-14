@@ -86,9 +86,9 @@ const addCurrentPptProgramButton = document.getElementById('addCurrentPptProgram
 const programNoteInput = document.getElementById('programNoteInput');
 const addProgramNoteButton = document.getElementById('addProgramNoteButton');
 const applyProgramItemButton = document.getElementById('applyProgramItemButton');
-const moveProgramItemUpButton = document.getElementById('moveProgramItemUpButton');
-const moveProgramItemDownButton = document.getElementById('moveProgramItemDownButton');
 const deleteProgramItemButton = document.getElementById('deleteProgramItemButton');
+const prevProgramItemButton = document.getElementById('prevProgramItemButton');
+const nextProgramItemButton = document.getElementById('nextProgramItemButton');
 const programList = document.getElementById('programList');
 const backupStatus = document.getElementById('backupStatus');
 const exportBackupButton = document.getElementById('exportBackupButton');
@@ -130,6 +130,7 @@ let latestState = null;
 let settingsRenderLocked = false;
 let pendingControlDisplaySettings = null;
 let selectedProgramItemId = '';
+let draggedProgramItemId = '';
 
 function isControlDisplaySettingsInput(element) {
   return [
@@ -184,6 +185,22 @@ function getSelectedProgramIndex(items) {
   return items.findIndex((item) => item.id === selectedProgramItemId);
 }
 
+function getProgramStepBaseIndex(items, currentItemId) {
+  const currentIndex = items.findIndex((item) => item.id === currentItemId);
+  if (currentIndex !== -1) return currentIndex;
+  return getSelectedProgramIndex(items);
+}
+
+function applyProgramItemByIndex(items, index) {
+  const item = items[index];
+  if (!item || item.missing) return;
+
+  selectedProgramItemId = item.id;
+  socket.emit('control:applyProgramItem', {
+    programItemId: item.id
+  });
+}
+
 function renderProgram(payload) {
   const items = payload.program?.items || [];
   const currentItemId = payload.program?.currentItemId || '';
@@ -200,6 +217,42 @@ function renderProgram(payload) {
     const button = document.createElement('button');
     const type = document.createElement('span');
     const title = document.createElement('span');
+
+    li.draggable = true;
+    li.dataset.programItemId = item.id;
+    li.addEventListener('dragstart', (event) => {
+      draggedProgramItemId = item.id;
+      li.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', item.id);
+    });
+    li.addEventListener('dragend', () => {
+      draggedProgramItemId = '';
+      li.classList.remove('dragging');
+      programList.querySelectorAll('.drag-over').forEach((element) => {
+        element.classList.remove('drag-over');
+      });
+    });
+    li.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      if (draggedProgramItemId && draggedProgramItemId !== item.id) {
+        li.classList.add('drag-over');
+      }
+    });
+    li.addEventListener('dragleave', () => {
+      li.classList.remove('drag-over');
+    });
+    li.addEventListener('drop', (event) => {
+      event.preventDefault();
+      li.classList.remove('drag-over');
+      const sourceId = event.dataTransfer.getData('text/plain') || draggedProgramItemId;
+      if (!sourceId || sourceId === item.id) return;
+
+      socket.emit('control:reorderProgramItem', {
+        programItemId: sourceId,
+        targetIndex: index
+      });
+    });
 
     button.type = 'button';
     button.className = 'program-item-button';
@@ -227,12 +280,20 @@ function renderProgram(payload) {
   });
 
   const selectedIndex = getSelectedProgramIndex(items);
+  const baseIndex = getProgramStepBaseIndex(items, currentItemId);
   const hasSelection = selectedIndex !== -1;
   applyProgramItemButton.disabled = !hasSelection || Boolean(items[selectedIndex]?.missing);
-  moveProgramItemUpButton.disabled = !hasSelection || selectedIndex <= 0;
-  moveProgramItemDownButton.disabled = !hasSelection || selectedIndex >= items.length - 1;
   deleteProgramItemButton.disabled = !hasSelection;
+  prevProgramItemButton.disabled = baseIndex <= 0;
+  nextProgramItemButton.disabled = baseIndex === -1 || baseIndex >= items.length - 1;
   addCurrentPptProgramButton.disabled = !(payload.ppt?.id);
+
+  prevProgramItemButton.onclick = () => {
+    applyProgramItemByIndex(items, baseIndex - 1);
+  };
+  nextProgramItemButton.onclick = () => {
+    applyProgramItemByIndex(items, baseIndex + 1);
+  };
 }
 
 function renderLyricsList(payload) {
@@ -681,24 +742,6 @@ applyProgramItemButton.addEventListener('click', () => {
 
   socket.emit('control:applyProgramItem', {
     programItemId: selectedProgramItemId
-  });
-});
-
-moveProgramItemUpButton.addEventListener('click', () => {
-  if (!selectedProgramItemId) return;
-
-  socket.emit('control:moveProgramItem', {
-    programItemId: selectedProgramItemId,
-    direction: -1
-  });
-});
-
-moveProgramItemDownButton.addEventListener('click', () => {
-  if (!selectedProgramItemId) return;
-
-  socket.emit('control:moveProgramItem', {
-    programItemId: selectedProgramItemId,
-    direction: 1
   });
 });
 
