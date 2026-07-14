@@ -54,7 +54,12 @@ function getLongestLine(lines = []) {
   }, '');
 }
 
-function getFittedFontSizeForWidth(measure, lines, baseFontSizeVw, minFontSizeVw) {
+function setSingerLyricsFontSize(fontSizeVw) {
+  currentLyric.style.fontSize = `${fontSizeVw.toFixed(1)}vw`;
+  nextLyric.style.fontSize = `${fontSizeVw.toFixed(1)}vw`;
+}
+
+function getFittedFontSizeForWidth(measures, lines, baseFontSizeVw, minFontSizeVw) {
   const longestLine = getLongestLine(lines);
 
   if (!longestLine) {
@@ -62,13 +67,22 @@ function getFittedFontSizeForWidth(measure, lines, baseFontSizeVw, minFontSizeVw
   }
 
   let nextFontSize = baseFontSizeVw;
-  measure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
-  measure.style.fontWeight = currentLyric.style.fontWeight;
-  measure.textContent = longestLine;
+  measures.forEach((measure) => {
+    measure.style.fontWeight = currentLyric.style.fontWeight;
+    measure.textContent = longestLine;
+  });
 
-  while (measure.scrollWidth > measure.clientWidth && nextFontSize > minFontSizeVw) {
+  const applyMeasureFontSize = () => {
+    measures.forEach((measure) => {
+      measure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
+    });
+  };
+
+  applyMeasureFontSize();
+
+  while (measures.some((measure) => measure.scrollWidth > measure.clientWidth) && nextFontSize > minFontSizeVw) {
     nextFontSize = Math.max(nextFontSize - 0.1, minFontSizeVw);
-    measure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
+    applyMeasureFontSize();
   }
 
   return nextFontSize;
@@ -84,10 +98,22 @@ function fitSingerLyricsToWidth() {
         ...(latestPayload?.currentLines || []),
         ...(latestPayload?.nextLines || [])
       ];
-    const fittedFontSize = getFittedFontSizeForWidth(currentLyricMeasure, songLines, singerFontSizeVw, 2.5);
+    let fittedFontSize = getFittedFontSizeForWidth(
+      [currentLyricMeasure, nextLyricMeasure],
+      songLines,
+      singerFontSizeVw,
+      2.5
+    );
 
-    currentLyric.style.fontSize = `${fittedFontSize.toFixed(1)}vw`;
-    nextLyric.style.fontSize = `${fittedFontSize.toFixed(1)}vw`;
+    setSingerLyricsFontSize(fittedFontSize);
+
+    while (
+      (currentLyric.scrollHeight > currentLyric.clientHeight || nextLyric.scrollHeight > nextLyric.clientHeight)
+      && fittedFontSize > 2.5
+    ) {
+      fittedFontSize = Math.max(fittedFontSize - 0.1, 2.5);
+      setSingerLyricsFontSize(fittedFontSize);
+    }
   });
 }
 
