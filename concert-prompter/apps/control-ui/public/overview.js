@@ -262,6 +262,7 @@ function renderPptOverview(payload) {
 
     if (index === currentSlideIndex) {
       button.classList.add('active');
+      button.setAttribute('aria-current', 'true');
     }
 
     const frame = document.createElement('div');
@@ -285,6 +286,14 @@ function renderPptOverview(payload) {
     });
 
     overviewGrid.appendChild(button);
+  });
+
+  requestAnimationFrame(() => {
+    const activeSlide = overviewGrid.querySelector('.overview-slide-card.active');
+    activeSlide?.scrollIntoView({
+      block: 'center',
+      inline: 'center'
+    });
   });
 }
 

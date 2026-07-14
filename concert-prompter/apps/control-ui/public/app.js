@@ -397,6 +397,14 @@ function renderPptControl(payload) {
   controlPptPreview.removeAttribute('src');
 }
 
+function renderBlankControl(payload) {
+  const isBlank = Boolean(payload.state.blank);
+  blankOnButton.classList.toggle('is-selected', isBlank);
+  blankOffButton.classList.toggle('is-selected', !isBlank);
+  blankOnButton.setAttribute('aria-pressed', String(isBlank));
+  blankOffButton.setAttribute('aria-pressed', String(!isBlank));
+}
+
 function render(payload) {
   latestState = payload;
 
@@ -412,6 +420,7 @@ function render(payload) {
   updateCurrentLyricScrollState();
   renderSingerControl(payload);
   renderPptControl(payload);
+  renderBlankControl(payload);
 }
 
 socket.on('connect', () => {

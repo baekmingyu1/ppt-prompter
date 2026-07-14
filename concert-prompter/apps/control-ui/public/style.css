@@ -76,6 +76,14 @@ body {
   color: #f5f5f5;
   font-size: 24px;
   text-decoration: none;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.presenter-back:hover {
+  border-color: #93c5fd;
+  background: rgba(147, 197, 253, 0.12);
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.22);
+  transform: translateY(-2px);
 }
 
 .presenter-mode-switch {
@@ -196,10 +204,14 @@ body {
   color: #fff;
   font-size: 26px;
   text-decoration: none;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .overview-back-button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  border-color: #93c5fd;
+  background: rgba(147, 197, 253, 0.12);
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.22);
+  transform: translateY(-2px);
 }
 
 .overview-title-group h1 {
@@ -261,6 +273,20 @@ body {
   min-height: 46px;
 }
 
+.overview-mode-button[aria-selected="true"],
+.presenter-mode-button[aria-selected="true"] {
+  background: #f59e0b;
+  color: #111;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.34);
+}
+
+.overview-mode-button[aria-selected="true"]:hover,
+.presenter-mode-button[aria-selected="true"]:hover {
+  background: #fbbf24;
+  color: #111;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.42);
+}
+
 .overview-empty {
   max-width: 420px;
 }
@@ -286,21 +312,43 @@ body {
 
 .overview-slide-card {
   display: grid;
+  grid-template-rows: auto 30px;
   gap: 10px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 16px;
+  padding: 8px;
+  border: 2px solid transparent;
+  border-radius: 18px;
   background: transparent;
   text-align: left;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .overview-slide-card:hover {
-  background: transparent;
+  border-color: #93c5fd;
+  background: rgba(147, 197, 253, 0.12);
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.22), 0 14px 30px rgba(0, 0, 0, 0.26);
+  transform: translateY(-3px);
+}
+
+.overview-slide-card.active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.32), 0 18px 40px rgba(0, 0, 0, 0.34);
+}
+
+.overview-slide-card.active:hover {
+  border-color: #fbbf24;
+  background: rgba(245, 158, 11, 0.2);
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.42), 0 22px 48px rgba(0, 0, 0, 0.42);
 }
 
 .overview-slide-card.active .overview-slide-frame {
-  border-color: #f8fafc;
-  box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.55);
+  border-color: #fef3c7;
+  box-shadow: 0 0 0 2px rgba(254, 243, 199, 0.72);
+}
+
+.overview-slide-card.active .overview-slide-number {
+  background: #f59e0b;
+  color: #111;
 }
 
 .overview-slide-frame {
@@ -313,8 +361,16 @@ body {
 }
 
 .overview-slide-card:hover .overview-slide-frame {
-  border-color: #4b5563;
-  transform: translateY(-2px);
+  border-color: #dbeafe;
+  transform: none;
+}
+
+.overview-slide-card:hover .overview-slide-number {
+  color: #bfdbfe;
+}
+
+.overview-slide-card.active:hover .overview-slide-number {
+  color: #111;
 }
 
 .overview-slide-image {
@@ -325,8 +381,20 @@ body {
 }
 
 .overview-slide-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: fit-content;
+  min-width: 34px;
+  height: 30px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: transparent;
   color: #d4a574;
   font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .overview-lyric-card {
@@ -336,25 +404,57 @@ body {
   gap: 14px;
   min-height: 110px;
   padding: 18px;
-  border: 1px solid #2c2c2c;
+  border: 2px solid #2c2c2c;
   border-radius: 16px;
   background: #1f1f1f;
   text-align: left;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .overview-lyric-card:hover {
-  background: #262626;
+  border-color: #93c5fd;
+  background: rgba(147, 197, 253, 0.12);
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.2), 0 14px 30px rgba(0, 0, 0, 0.24);
+  transform: translateY(-3px);
 }
 
 .overview-lyric-card.active {
-  border-color: #2563eb;
-  background: #172554;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.34), 0 18px 40px rgba(0, 0, 0, 0.32);
+}
+
+.overview-lyric-card.active:hover {
+  border-color: #fbbf24;
+  background: rgba(245, 158, 11, 0.22);
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.42), 0 22px 48px rgba(0, 0, 0, 0.4);
 }
 
 .overview-lyric-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: fit-content;
+  min-width: 40px;
+  height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: transparent;
   color: #d4a574;
   font-size: 20px;
   font-weight: 700;
+  line-height: 1;
+}
+
+.overview-lyric-card:hover .overview-lyric-number {
+  color: #bfdbfe;
+}
+
+.overview-lyric-card.active .overview-lyric-number,
+.overview-lyric-card.active:hover .overview-lyric-number {
+  background: #f59e0b;
+  color: #111;
 }
 
 .overview-lyric-text {
@@ -444,6 +544,39 @@ textarea {
   background: #050505;
   color: #fff;
   font-size: 18px;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+select:hover,
+input:hover,
+textarea:hover {
+  border-color: #93c5fd;
+  background: rgba(147, 197, 253, 0.1);
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.2);
+}
+
+select:focus,
+input:focus,
+textarea:focus {
+  border-color: #bfdbfe;
+  outline: none;
+  background: rgba(147, 197, 253, 0.13);
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.3);
+}
+
+select option {
+  background: #111827;
+  color: #f8fafc;
+}
+
+select option:checked {
+  background: #2563eb;
+  color: #fff;
+}
+
+select option:disabled {
+  background: #111827;
+  color: #9ca3af;
 }
 
 input[type="color"] {
@@ -605,10 +738,14 @@ textarea {
   font-size: 16px;
   text-decoration: none;
   white-space: nowrap;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .button-link:hover {
-  background: #444;
+  background: rgba(147, 197, 253, 0.22);
+  color: #e5f0ff;
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.42), 0 10px 24px rgba(0, 0, 0, 0.22);
+  transform: translateY(-2px);
 }
 
 .editor-actions {
@@ -780,10 +917,14 @@ button {
   color: #fff;
   font-size: 18px;
   cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 button:hover {
-  background: #444;
+  background: rgba(147, 197, 253, 0.22);
+  color: #e5f0ff;
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.42), 0 10px 24px rgba(0, 0, 0, 0.22);
+  transform: translateY(-2px);
 }
 
 button.primary {
@@ -792,6 +933,7 @@ button.primary {
 
 button.primary:hover {
   background: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.32);
 }
 
 button.danger {
@@ -800,6 +942,7 @@ button.danger {
 
 button.danger:hover {
   background: #b91c1c;
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.32);
 }
 
 .toggle-button {
@@ -812,7 +955,52 @@ button.danger:hover {
 }
 
 .toggle-button:hover {
-  background: #3a3a3a;
+  border-color: #93c5fd;
+  background: rgba(147, 197, 253, 0.22);
+  color: #e5f0ff;
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.42), 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-button.primary {
+  border-color: #f59e0b;
+  background: #f59e0b;
+  color: #111;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+}
+
+.toggle-button.primary:hover {
+  border-color: #fbbf24;
+  background: #fbbf24;
+  color: #111;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.38);
+}
+
+#lyricsModeButton.primary,
+#pptModeButton.primary {
+  background: #f59e0b;
+  color: #111;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.34);
+}
+
+#lyricsModeButton.primary:hover,
+#pptModeButton.primary:hover {
+  background: #fbbf24;
+  color: #111;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.42);
+}
+
+#blankOnButton.is-selected,
+#blankOffButton.is-selected {
+  background: #f59e0b;
+  color: #111;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.34);
+}
+
+#blankOnButton.is-selected:hover,
+#blankOffButton.is-selected:hover {
+  background: #fbbf24;
+  color: #111;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.42);
 }
 
 .settings-grid[hidden] {
@@ -828,6 +1016,14 @@ button.danger:hover {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+  transform: none;
+  box-shadow: none;
+}
+
+button:disabled:hover {
+  background: #333;
+  color: #fff;
+  box-shadow: none;
 }
 
 .background-actions {
@@ -910,19 +1106,34 @@ button:disabled {
 
 .lyrics-list li {
   padding: 10px;
+  border: 2px solid transparent;
   border-radius: 8px;
   cursor: pointer;
   color: #bbb;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .lyrics-list li:hover {
-  background: #2a2a2a;
+  border-color: #93c5fd;
+  background: rgba(147, 197, 253, 0.14);
+  color: #e5f0ff;
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.18);
+  transform: translateX(3px);
 }
 
 .lyrics-list li.active {
-  background: #2563eb;
-  color: #fff;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fff7ed;
   font-weight: 700;
+  box-shadow: inset 4px 0 0 #f59e0b, 0 0 0 2px rgba(245, 158, 11, 0.24);
+}
+
+.lyrics-list li.active:hover {
+  border-color: #fbbf24;
+  background: rgba(245, 158, 11, 0.26);
+  color: #fff;
+  box-shadow: inset 4px 0 0 #fbbf24, 0 0 0 3px rgba(245, 158, 11, 0.32);
 }
 
 @media (max-width: 720px) {
