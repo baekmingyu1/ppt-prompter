@@ -219,6 +219,13 @@ function moveProgramStep(delta) {
   applyProgramItemByIndex(items, baseIndex + delta);
 }
 
+function scrollElementIntoContainer(element, container) {
+  if (!element || !container) return;
+
+  const targetTop = element.offsetTop - (container.clientHeight / 2) + (element.offsetHeight / 2);
+  container.scrollTop = Math.max(targetTop, 0);
+}
+
 function renderProgram(payload, shouldAutoScroll = true) {
   const items = payload.program?.items || [];
   const currentItemId = payload.program?.currentItemId || '';
@@ -318,10 +325,7 @@ function renderProgram(payload, shouldAutoScroll = true) {
 
   if (shouldAutoScroll && focusedProgramItem) {
     requestAnimationFrame(() => {
-      focusedProgramItem.scrollIntoView({
-        block: 'center',
-        behavior: 'smooth'
-      });
+      scrollElementIntoContainer(focusedProgramItem, programList);
     });
   }
 }
@@ -354,10 +358,7 @@ function renderLyricsList(payload, shouldAutoScroll = true) {
   if (shouldAutoScroll && activeLine) {
     requestAnimationFrame(() => {
       const scrollContainer = lyricsList.closest('.lyrics-scroll');
-      if (!scrollContainer) return;
-
-      const targetTop = activeLine.offsetTop - (scrollContainer.clientHeight / 2) + (activeLine.offsetHeight / 2);
-      scrollContainer.scrollTop = Math.max(targetTop, 0);
+      scrollElementIntoContainer(activeLine, scrollContainer);
     });
   }
 }
