@@ -799,6 +799,7 @@ function buildControlPayload() {
     role: 'control',
     state,
     canUndo: undoStack.length > 0,
+    connections: getConnectionPayload(),
     songs: songs.map((item) => ({
       id: item.id,
       title: item.title,
@@ -915,6 +916,14 @@ function emitState() {
   io.to('control').emit('state', buildControlPayload());
   io.to('audience').emit('state', buildAudiencePayload());
   io.to('singer').emit('state', buildSingerPayload());
+}
+
+function getConnectionPayload() {
+  return {
+    control: io.sockets.adapter.rooms.get('control')?.size || 0,
+    audience: io.sockets.adapter.rooms.get('audience')?.size || 0,
+    singer: io.sockets.adapter.rooms.get('singer')?.size || 0
+  };
 }
 
 function setSong(songId, options = {}) {
@@ -1638,6 +1647,7 @@ io.on('connection', (socket) => {
     }
 
     socket.join(role);
+    socket.data.role = role;
 
     if (role === 'control') {
       socket.emit('state', buildControlPayload());
@@ -1650,6 +1660,13 @@ io.on('connection', (socket) => {
     if (role === 'singer') {
       socket.emit('state', buildSingerPayload());
     }
+
+    io.to('control').emit('state', buildControlPayload());
+  });
+
+  socket.on('disconnect', () => {
+    if (!socket.data.role) return;
+    io.to('control').emit('state', buildControlPayload());
   });
 
   socket.on('control:next', () => {

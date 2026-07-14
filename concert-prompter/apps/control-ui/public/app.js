@@ -6,6 +6,8 @@ const MAX_BACKGROUND_IMAGE_BYTES = MAX_BACKGROUND_IMAGE_MB * 1024 * 1024;
 const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 
 const connectionStatus = document.getElementById('connectionStatus');
+const audienceScreenStatus = document.getElementById('audienceScreenStatus');
+const singerScreenStatus = document.getElementById('singerScreenStatus');
 const songSelect = document.getElementById('songSelect');
 const prevSongButton = document.getElementById('prevSongButton');
 const songStartButton = document.getElementById('songStartButton');
@@ -497,6 +499,17 @@ function renderEmergencyControl(payload) {
   }
 }
 
+function renderScreenConnections(payload) {
+  const connections = payload.connections || {};
+  const audienceCount = Number(connections.audience || 0);
+  const singerCount = Number(connections.singer || 0);
+
+  audienceScreenStatus.textContent = `관객 ${audienceCount}`;
+  singerScreenStatus.textContent = `가수 ${singerCount}`;
+  audienceScreenStatus.classList.toggle('connected', audienceCount > 0);
+  singerScreenStatus.classList.toggle('connected', singerCount > 0);
+}
+
 function render(payload) {
   latestState = payload;
 
@@ -516,6 +529,7 @@ function render(payload) {
   renderPptControl(payload);
   renderBlankControl(payload);
   renderEmergencyControl(payload);
+  renderScreenConnections(payload);
 }
 
 socket.on('connect', () => {

@@ -824,6 +824,26 @@ textarea {
   gap: 8px;
 }
 
+.screen-statuses {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.screen-status {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #2a2a2a;
+  color: #fca5a5;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.screen-status.connected {
+  background: #174d2a;
+  color: #b8ffc9;
+}
+
 .button-link {
   display: inline-flex;
   align-items: center;
