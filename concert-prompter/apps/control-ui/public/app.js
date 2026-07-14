@@ -131,6 +131,7 @@ let settingsRenderLocked = false;
 let pendingControlDisplaySettings = null;
 let selectedProgramItemId = '';
 let draggedProgramItemId = '';
+let lastAutoScrollKey = '';
 
 function isControlDisplaySettingsInput(element) {
   return [
@@ -218,7 +219,7 @@ function moveProgramStep(delta) {
   applyProgramItemByIndex(items, baseIndex + delta);
 }
 
-function renderProgram(payload) {
+function renderProgram(payload, shouldAutoScroll = true) {
   const items = payload.program?.items || [];
   const currentItemId = payload.program?.currentItemId || '';
 
@@ -315,7 +316,7 @@ function renderProgram(payload) {
   const focusedProgramItem = programList.querySelector('.program-item-button.active')
     || programList.querySelector('.program-item-button.selected');
 
-  if (focusedProgramItem) {
+  if (shouldAutoScroll && focusedProgramItem) {
     requestAnimationFrame(() => {
       focusedProgramItem.scrollIntoView({
         block: 'center',
@@ -325,7 +326,7 @@ function renderProgram(payload) {
   }
 }
 
-function renderLyricsList(payload) {
+function renderLyricsList(payload, shouldAutoScroll = true) {
   lyricsList.innerHTML = '';
 
   payload.lyrics.forEach((line, index) => {
@@ -350,7 +351,7 @@ function renderLyricsList(payload) {
 
   const activeLine = lyricsList.querySelector('.active');
 
-  if (activeLine) {
+  if (shouldAutoScroll && activeLine) {
     requestAnimationFrame(() => {
       const scrollContainer = lyricsList.closest('.lyrics-scroll');
       if (!scrollContainer) return;
@@ -608,11 +609,21 @@ function renderAudiencePreview(payload) {
 }
 
 function render(payload) {
+  const nextAutoScrollKey = [
+    payload.song?.id || '',
+    payload.state?.lineIndex ?? '',
+    payload.program?.currentItemId || '',
+    payload.viewMode || '',
+    payload.ppt?.slideIndex ?? ''
+  ].join('|');
+  const shouldAutoScroll = nextAutoScrollKey !== lastAutoScrollKey;
+  lastAutoScrollKey = nextAutoScrollKey;
+
   latestState = payload;
 
   renderSongs(payload);
-  renderProgram(payload);
-  renderLyricsList(payload);
+  renderProgram(payload, shouldAutoScroll);
+  renderLyricsList(payload, shouldAutoScroll);
   renderDisplaySettings(payload);
 
   undoButton.disabled = !payload.canUndo;
