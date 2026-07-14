@@ -17,6 +17,10 @@ const lineCounter = document.getElementById('lineCounter');
 const currentLyric = document.getElementById('currentLyric');
 const nextLyric = document.getElementById('nextLyric');
 const controlPptPreview = document.getElementById('controlPptPreview');
+const audiencePreviewStatus = document.getElementById('audiencePreviewStatus');
+const audienceLivePreview = document.getElementById('audienceLivePreview');
+const audiencePreviewLyric = document.getElementById('audiencePreviewLyric');
+const audiencePreviewPpt = document.getElementById('audiencePreviewPpt');
 const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
 const undoButton = document.getElementById('undoButton');
@@ -510,6 +514,40 @@ function renderScreenConnections(payload) {
   singerScreenStatus.classList.toggle('connected', singerCount > 0);
 }
 
+function renderAudiencePreview(payload) {
+  const settings = payload.state.displaySettings?.audience || {};
+  const isBlank = Boolean(payload.state.blank);
+  const isPptMode = payload.viewMode === 'ppt' && payload.ppt?.currentSlide;
+  const backgroundImage = settings.backgroundImage ? `url("${settings.backgroundImage}")` : '';
+
+  audienceLivePreview.classList.toggle('is-blank', isBlank);
+  audienceLivePreview.style.backgroundImage = isBlank ? '' : backgroundImage;
+  audiencePreviewLyric.hidden = isBlank || isPptMode;
+  audiencePreviewPpt.hidden = isBlank || !isPptMode;
+
+  if (isBlank) {
+    audiencePreviewStatus.textContent = '빈 화면';
+    audiencePreviewPpt.removeAttribute('src');
+    audiencePreviewLyric.textContent = '';
+    return;
+  }
+
+  if (isPptMode) {
+    audiencePreviewStatus.textContent = 'PPT';
+    audiencePreviewPpt.src = getAssetUrl(payload.ppt.currentSlide.url);
+    audiencePreviewLyric.textContent = '';
+    return;
+  }
+
+  audiencePreviewStatus.textContent = payload.state.emergencyMessage ? '긴급 문구' : '가사';
+  audiencePreviewPpt.removeAttribute('src');
+  audiencePreviewLyric.textContent = getLinesText(payload.currentLines) || '-';
+  audiencePreviewLyric.style.color = settings.fontColor || '#fff';
+  audiencePreviewLyric.style.fontWeight = String(settings.fontWeight || 800);
+  audiencePreviewLyric.style.fontSize = `${Math.min(Math.max(Number(settings.fontSizeVw || 6) * 4, 18), 42)}px`;
+  audiencePreviewLyric.style.top = `${Number(settings.verticalPositionPercent || 50)}%`;
+}
+
 function render(payload) {
   latestState = payload;
 
@@ -530,6 +568,7 @@ function render(payload) {
   renderBlankControl(payload);
   renderEmergencyControl(payload);
   renderScreenConnections(payload);
+  renderAudiencePreview(payload);
 }
 
 socket.on('connect', () => {
