@@ -66,25 +66,30 @@ function fitLyricElementToWidth(element, measure, lines, baseFontSizeVw, minFont
   measure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
   measure.style.fontWeight = element.style.fontWeight;
   measure.textContent = longestLine;
+  element.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
 
-  while (measure.scrollWidth > measure.clientWidth && nextFontSize > minFontSizeVw) {
+  while (
+    (
+      measure.scrollWidth > measure.clientWidth
+      || element.scrollHeight > element.clientHeight
+    )
+    && nextFontSize > minFontSizeVw
+  ) {
     nextFontSize = Math.max(nextFontSize - 0.1, minFontSizeVw);
     measure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
+    element.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
   }
-
-  element.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
 }
 
 function fitSingerLyricsToWidth() {
   requestAnimationFrame(() => {
     if (currentLyric.hidden) return;
 
-    const songLines = latestPayload?.lyrics?.length ? latestPayload.lyrics : latestPayload?.currentLines || [];
     const currentBase = singerFontSizeVw;
     const nextBase = Math.max(singerFontSizeVw * 0.58, 2.2);
 
-    fitLyricElementToWidth(currentLyric, currentLyricMeasure, songLines, currentBase, 2.5);
-    fitLyricElementToWidth(nextLyric, nextLyricMeasure, songLines, nextBase, 1.8);
+    fitLyricElementToWidth(currentLyric, currentLyricMeasure, latestPayload?.currentLines || [], currentBase, 2.5);
+    fitLyricElementToWidth(nextLyric, nextLyricMeasure, latestPayload?.nextLines || [], nextBase, 1.8);
   });
 }
 

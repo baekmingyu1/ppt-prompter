@@ -435,7 +435,7 @@ function renderProgramOverview(payload) {
   programOverviewEntries.forEach((entry, index) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = entry.type === 'ppt' ? 'overview-slide-card' : 'overview-lyric-card';
+    button.className = entry.type === 'ppt' ? 'overview-slide-card' : 'overview-program-lyric-card';
     button.classList.toggle('active', entry.active);
     button.setAttribute('aria-label', `${index + 1}번 순서 카드로 이동`);
 
@@ -454,7 +454,7 @@ function renderProgramOverview(payload) {
       button.append(frame, number);
     } else {
       const number = document.createElement('span');
-      number.className = 'overview-lyric-number';
+      number.className = 'overview-slide-number';
       number.textContent = String(index + 1);
       const text = document.createElement('span');
       text.className = 'overview-lyric-text';

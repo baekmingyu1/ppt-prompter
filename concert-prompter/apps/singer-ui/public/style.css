@@ -38,7 +38,9 @@ body {
 .next-section {
   display: flex;
   flex-direction: column;
+  position: relative;
   justify-content: center;
+  min-height: 0;
   border-radius: 24px;
   padding: 4vh 4vw;
   background: #101010;
@@ -58,6 +60,9 @@ body {
 }
 
 .current-lyric {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   font-size: 5.6vw;
   font-weight: 900;
   line-height: 1.25;
@@ -66,6 +71,9 @@ body {
 }
 
 .next-lyric {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   color: #bbb;
   font-size: 3.2vw;
   font-weight: 700;
@@ -78,6 +86,7 @@ body {
   position: absolute;
   left: 4vw;
   right: 4vw;
+  bottom: 4vh;
   visibility: hidden;
   pointer-events: none;
   white-space: nowrap;
