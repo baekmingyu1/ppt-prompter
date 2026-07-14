@@ -12,11 +12,6 @@ const songSelect = document.getElementById('songSelect');
 const prevSongButton = document.getElementById('prevSongButton');
 const songStartButton = document.getElementById('songStartButton');
 const nextSongButton = document.getElementById('nextSongButton');
-const songTitle = document.getElementById('songTitle');
-const lineCounter = document.getElementById('lineCounter');
-const currentLyric = document.getElementById('currentLyric');
-const nextLyric = document.getElementById('nextLyric');
-const controlPptPreview = document.getElementById('controlPptPreview');
 const audiencePreviewStatus = document.getElementById('audiencePreviewStatus');
 const audienceLivePreview = document.getElementById('audienceLivePreview');
 const audiencePreviewLyric = document.getElementById('audiencePreviewLyric');
@@ -342,8 +337,6 @@ function renderDisplaySettings(payload) {
 }
 
 function applyControlDisplaySettings(currentFontSizePx, nextFontSizePx, singerPreviewCurrentFontSizePx = 20, singerPreviewNextFontSizePx = 20) {
-  currentLyric.style.fontSize = `${currentFontSizePx}px`;
-  nextLyric.style.fontSize = `${nextFontSizePx}px`;
   singerCurrentLyric.style.fontSize = `${singerPreviewCurrentFontSizePx}px`;
   singerNextLyric.style.fontSize = `${singerPreviewNextFontSizePx}px`;
 }
@@ -376,16 +369,6 @@ function getLineCounterText(payload) {
   );
 
   return start === end ? `${start} / ${payload.song.totalLines}` : `${start}-${end} / ${payload.song.totalLines}`;
-}
-
-function updateCurrentLyricScrollState() {
-  requestAnimationFrame(() => {
-    const hasOverflow = currentLyric.scrollHeight > currentLyric.clientHeight + 12;
-    currentLyric.classList.toggle('is-scrollable', hasOverflow);
-    if (!hasOverflow) {
-      currentLyric.scrollTop = 0;
-    }
-  });
 }
 
 function updateSingerLyricScrollState() {
@@ -468,20 +451,6 @@ function renderPptControl(payload) {
   pptModeButton.disabled = !hasPpt;
   prevPptButton.disabled = !hasPpt || Number(ppt.slideIndex || 0) <= 0;
   nextPptButton.disabled = !hasPpt || Number(ppt.slideIndex || 0) >= ppt.slides.length - 1;
-  currentLyric.closest('.current-box')?.classList.toggle('is-ppt-preview', isPptMode && hasPpt);
-  nextLyric.closest('.next-box')?.classList.toggle('is-ppt-mode', isPptMode && hasPpt);
-
-  if (isPptMode && hasPpt) {
-    currentLyric.hidden = true;
-    nextLyric.textContent = 'PPT 화면 표시 중';
-    controlPptPreview.hidden = false;
-    controlPptPreview.src = getAssetUrl(ppt.currentSlide?.url);
-    return;
-  }
-
-  currentLyric.hidden = false;
-  controlPptPreview.hidden = true;
-  controlPptPreview.removeAttribute('src');
 }
 
 function renderBlankControl(payload) {
@@ -556,13 +525,7 @@ function render(payload) {
   renderLyricsList(payload);
   renderDisplaySettings(payload);
 
-  songTitle.textContent = `${payload.song.title} - ${payload.song.artist || ''}`;
-  lineCounter.textContent = getLineCounterText(payload);
-
-  currentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.currentLines);
-  nextLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.nextLines);
   undoButton.disabled = !payload.canUndo;
-  updateCurrentLyricScrollState();
   renderSingerControl(payload);
   renderPptControl(payload);
   renderBlankControl(payload);
