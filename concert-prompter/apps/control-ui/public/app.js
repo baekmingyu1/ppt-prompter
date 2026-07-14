@@ -73,6 +73,16 @@ const settingsToggleButton = document.getElementById('settingsToggleButton');
 const displaySettingsBody = document.getElementById('displaySettingsBody');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
+const programStatus = document.getElementById('programStatus');
+const addCurrentSongProgramButton = document.getElementById('addCurrentSongProgramButton');
+const addCurrentPptProgramButton = document.getElementById('addCurrentPptProgramButton');
+const programNoteInput = document.getElementById('programNoteInput');
+const addProgramNoteButton = document.getElementById('addProgramNoteButton');
+const applyProgramItemButton = document.getElementById('applyProgramItemButton');
+const moveProgramItemUpButton = document.getElementById('moveProgramItemUpButton');
+const moveProgramItemDownButton = document.getElementById('moveProgramItemDownButton');
+const deleteProgramItemButton = document.getElementById('deleteProgramItemButton');
+const programList = document.getElementById('programList');
 
 function getScreenUrl(configuredUrl, localPort, servicePath) {
   if (configuredUrl && !configuredUrl.startsWith('/')) {
@@ -109,6 +119,7 @@ if (audienceBackgroundHint) {
 let latestState = null;
 let settingsRenderLocked = false;
 let pendingControlDisplaySettings = null;
+let selectedProgramItemId = '';
 
 function isControlDisplaySettingsInput(element) {
   return [
@@ -151,6 +162,67 @@ function renderSongs(payload) {
   prevSongButton.disabled = currentSongIndex <= 0;
   songStartButton.disabled = payload.state.lineIndex <= 0;
   nextSongButton.disabled = currentSongIndex === -1 || currentSongIndex >= payload.songs.length - 1;
+}
+
+function getProgramTypeLabel(type) {
+  if (type === 'song') return '곡';
+  if (type === 'ppt') return 'PPT';
+  return '메모';
+}
+
+function getSelectedProgramIndex(items) {
+  return items.findIndex((item) => item.id === selectedProgramItemId);
+}
+
+function renderProgram(payload) {
+  const items = payload.program?.items || [];
+  const currentItemId = payload.program?.currentItemId || '';
+
+  if (!items.some((item) => item.id === selectedProgramItemId)) {
+    selectedProgramItemId = currentItemId || items[0]?.id || '';
+  }
+
+  programStatus.textContent = `${items.length}개`;
+  programList.innerHTML = '';
+
+  items.forEach((item, index) => {
+    const li = document.createElement('li');
+    const button = document.createElement('button');
+    const type = document.createElement('span');
+    const title = document.createElement('span');
+
+    button.type = 'button';
+    button.className = 'program-item-button';
+    button.classList.toggle('active', item.id === currentItemId);
+    button.classList.toggle('selected', item.id === selectedProgramItemId);
+    button.disabled = Boolean(item.missing);
+    type.className = 'program-item-type';
+    title.className = 'program-item-title';
+    type.textContent = `${index + 1}. ${getProgramTypeLabel(item.type)}`;
+    title.textContent = item.missing ? `${item.title} (삭제됨)` : item.title;
+
+    button.append(type, title);
+    button.addEventListener('click', () => {
+      selectedProgramItemId = item.id;
+      renderProgram(payload);
+    });
+    button.addEventListener('dblclick', () => {
+      socket.emit('control:applyProgramItem', {
+        programItemId: item.id
+      });
+    });
+
+    li.appendChild(button);
+    programList.appendChild(li);
+  });
+
+  const selectedIndex = getSelectedProgramIndex(items);
+  const hasSelection = selectedIndex !== -1;
+  applyProgramItemButton.disabled = !hasSelection || Boolean(items[selectedIndex]?.missing);
+  moveProgramItemUpButton.disabled = !hasSelection || selectedIndex <= 0;
+  moveProgramItemDownButton.disabled = !hasSelection || selectedIndex >= items.length - 1;
+  deleteProgramItemButton.disabled = !hasSelection;
+  addCurrentPptProgramButton.disabled = !(payload.ppt?.id);
 }
 
 function renderLyricsList(payload) {
@@ -409,6 +481,7 @@ function render(payload) {
   latestState = payload;
 
   renderSongs(payload);
+  renderProgram(payload);
   renderLyricsList(payload);
   renderDisplaySettings(payload);
 
@@ -443,6 +516,91 @@ socket.on('state', (payload) => {
 
 socket.on('errorMessage', (payload) => {
   alert(payload.message || '오류가 발생했습니다.');
+});
+
+function addProgramItem(payload) {
+  socket.emit('control:addProgramItem', payload, (response) => {
+    if (!response?.ok) {
+      alert(response?.message || '순서표 항목을 추가하지 못했습니다.');
+    }
+  });
+}
+
+addCurrentSongProgramButton.addEventListener('click', () => {
+  if (!latestState?.song?.id) return;
+
+  addProgramItem({
+    type: 'song',
+    refId: latestState.song.id,
+    title: `${latestState.song.title} - ${latestState.song.artist || ''}`
+  });
+});
+
+addCurrentPptProgramButton.addEventListener('click', () => {
+  if (!latestState?.ppt?.id) return;
+
+  addProgramItem({
+    type: 'ppt',
+    refId: latestState.ppt.id,
+    title: latestState.ppt.filename || 'PPT'
+  });
+});
+
+function addProgramNote() {
+  const title = programNoteInput.value.trim();
+  if (!title) return;
+
+  addProgramItem({
+    type: 'note',
+    title
+  });
+  programNoteInput.value = '';
+}
+
+addProgramNoteButton.addEventListener('click', addProgramNote);
+
+programNoteInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  addProgramNote();
+});
+
+applyProgramItemButton.addEventListener('click', () => {
+  if (!selectedProgramItemId) return;
+
+  socket.emit('control:applyProgramItem', {
+    programItemId: selectedProgramItemId
+  });
+});
+
+moveProgramItemUpButton.addEventListener('click', () => {
+  if (!selectedProgramItemId) return;
+
+  socket.emit('control:moveProgramItem', {
+    programItemId: selectedProgramItemId,
+    direction: -1
+  });
+});
+
+moveProgramItemDownButton.addEventListener('click', () => {
+  if (!selectedProgramItemId) return;
+
+  socket.emit('control:moveProgramItem', {
+    programItemId: selectedProgramItemId,
+    direction: 1
+  });
+});
+
+deleteProgramItemButton.addEventListener('click', () => {
+  if (!selectedProgramItemId || !confirm('선택한 순서표 항목을 삭제할까요?')) return;
+
+  socket.emit('control:deleteProgramItem', {
+    programItemId: selectedProgramItemId
+  }, (response) => {
+    if (!response?.ok) {
+      alert(response?.message || '순서표 항목을 삭제하지 못했습니다.');
+    }
+  });
 });
 
 songSelect.addEventListener('change', () => {

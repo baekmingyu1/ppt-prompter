@@ -20,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SONGS_PATH = process.env.SONGS_PATH || path.join(__dirname, 'data', 'songs.json');
 const PPTS_PATH = process.env.PPTS_PATH || path.join(__dirname, 'data', 'ppts.json');
+const PROGRAM_PATH = process.env.PROGRAM_PATH || path.join(__dirname, 'data', 'program.json');
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const CONTROL_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'control-ui', 'public');
 const AUDIENCE_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'audience-ui', 'public');
@@ -135,8 +136,10 @@ const DEFAULT_DISPLAY_SETTINGS = {
 
 let songs = [];
 let ppts = [];
+let programItems = [];
 let state = {
   songId: null,
+  programItemId: '',
   lineIndex: 0,
   viewMode: 'lyrics',
   ppt: {
@@ -194,6 +197,21 @@ async function loadPpts() {
   }
 }
 
+async function loadProgram() {
+  try {
+    const raw = await fs.readFile(PROGRAM_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    programItems = Array.isArray(parsed) ? parsed.map(normalizeProgramItem).filter(Boolean) : [];
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+
+    programItems = [];
+    await saveProgram();
+  }
+}
+
 async function saveSongs() {
   await fs.writeFile(SONGS_PATH, `${JSON.stringify(songs, null, 2)}\n`, 'utf-8');
 }
@@ -203,6 +221,13 @@ async function savePpts() {
     recursive: true
   });
   await fs.writeFile(PPTS_PATH, `${JSON.stringify(ppts, null, 2)}\n`, 'utf-8');
+}
+
+async function saveProgram() {
+  await fs.mkdir(path.dirname(PROGRAM_PATH), {
+    recursive: true
+  });
+  await fs.writeFile(PROGRAM_PATH, `${JSON.stringify(programItems, null, 2)}\n`, 'utf-8');
 }
 
 async function reconcilePptLibraryFromUploads() {
@@ -276,6 +301,51 @@ function createSongId() {
     .filter((value) => Number.isFinite(value));
   const nextNumber = (numbers.length ? Math.max(...numbers) : 0) + 1;
   return `song-${String(nextNumber).padStart(3, '0')}`;
+}
+
+function createProgramItemId() {
+  return `program-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeProgramItem(item) {
+  if (!item || typeof item !== 'object') return null;
+
+  const type = ['song', 'ppt', 'note'].includes(item.type) ? item.type : 'note';
+  const title = String(item.title || '').trim();
+  const refId = String(item.refId || '').trim();
+
+  if (type !== 'note' && !refId) return null;
+  if (type === 'note' && !title) return null;
+
+  return {
+    id: String(item.id || createProgramItemId()),
+    type,
+    title: title || '',
+    refId,
+    createdAt: item.createdAt || new Date().toISOString()
+  };
+}
+
+function getProgramPayload() {
+  return programItems.map((item) => {
+    const song = item.type === 'song' ? songs.find((entry) => entry.id === item.refId) : null;
+    const ppt = item.type === 'ppt' ? ppts.find((entry) => entry.id === item.refId) : null;
+    const missing = (item.type === 'song' && !song) || (item.type === 'ppt' && !ppt);
+    const title = item.title
+      || (song ? `${song.title} - ${song.artist || ''}` : '')
+      || (ppt ? ppt.filename : '')
+      || '메모';
+
+    return {
+      ...item,
+      title,
+      missing
+    };
+  });
+}
+
+function getProgramItemIndex(programItemId) {
+  return programItems.findIndex((item) => item.id === programItemId);
 }
 
 function getCurrentSong() {
@@ -697,6 +767,10 @@ function buildControlPayload() {
       artist: item.artist,
       totalLines: (item.lyrics || []).length
     })),
+    program: {
+      currentItemId: state.programItemId,
+      items: getProgramPayload()
+    },
     song: {
       id: song.id,
       title: song.title,
@@ -994,6 +1068,92 @@ async function deletePpt(pptId) {
   }
 
   await savePpts();
+}
+
+async function addProgramItem({ type, refId, title }) {
+  const normalizedType = ['song', 'ppt', 'note'].includes(type) ? type : 'note';
+  const itemTitle = String(title || '').trim();
+  const itemRefId = String(refId || '').trim();
+
+  if (normalizedType === 'song' && !songs.some((song) => song.id === itemRefId)) {
+    throw new Error('Unknown songId.');
+  }
+
+  if (normalizedType === 'ppt' && !ppts.some((ppt) => ppt.id === itemRefId)) {
+    throw new Error('Unknown pptId.');
+  }
+
+  if (normalizedType === 'note' && !itemTitle) {
+    throw new Error('메모 내용을 입력해 주세요.');
+  }
+
+  const song = normalizedType === 'song' ? songs.find((entry) => entry.id === itemRefId) : null;
+  const ppt = normalizedType === 'ppt' ? ppts.find((entry) => entry.id === itemRefId) : null;
+  const nextItem = {
+    id: createProgramItemId(),
+    type: normalizedType,
+    refId: normalizedType === 'note' ? '' : itemRefId,
+    title: itemTitle || (song ? `${song.title} - ${song.artist || ''}` : ppt?.filename || ''),
+    createdAt: new Date().toISOString()
+  };
+
+  programItems.push(nextItem);
+  await saveProgram();
+  touchState();
+  return nextItem;
+}
+
+async function deleteProgramItem(programItemId) {
+  const itemIndex = getProgramItemIndex(programItemId);
+
+  if (itemIndex === -1) {
+    throw new Error('Unknown program item.');
+  }
+
+  programItems.splice(itemIndex, 1);
+
+  if (state.programItemId === programItemId) {
+    state.programItemId = '';
+  }
+
+  await saveProgram();
+  touchState();
+}
+
+async function moveProgramItem(programItemId, direction) {
+  const itemIndex = getProgramItemIndex(programItemId);
+  const nextIndex = itemIndex + Number(direction);
+
+  if (itemIndex === -1 || nextIndex < 0 || nextIndex >= programItems.length) {
+    return;
+  }
+
+  const [item] = programItems.splice(itemIndex, 1);
+  programItems.splice(nextIndex, 0, item);
+  await saveProgram();
+  touchState();
+}
+
+function applyProgramItem(programItemId) {
+  const item = programItems.find((entry) => entry.id === programItemId);
+
+  if (!item) {
+    throw new Error('Unknown program item.');
+  }
+
+  state.programItemId = item.id;
+
+  if (item.type === 'song') {
+    setSong(item.refId);
+    return;
+  }
+
+  if (item.type === 'ppt') {
+    setPptById(item.refId);
+    return;
+  }
+
+  touchState();
 }
 
 app.get('/health', (req, res) => {
@@ -1529,10 +1689,97 @@ io.on('connection', (socket) => {
       });
     }
   });
+
+  socket.on('control:addProgramItem', async (payload, callback) => {
+    try {
+      await addProgramItem(payload || {});
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:applyProgramItem', ({ programItemId }) => {
+    try {
+      applyProgramItem(String(programItemId || ''));
+      emitState();
+    } catch (error) {
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:moveProgramItem', async ({ programItemId, direction }, callback) => {
+    try {
+      await moveProgramItem(String(programItemId || ''), Number(direction));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:deleteProgramItem', async ({ programItemId }, callback) => {
+    try {
+      await deleteProgramItem(String(programItemId || ''));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
 });
 
 await loadSongs();
 await loadPpts();
+await loadProgram();
 
 server.listen(PORT, () => {
   console.log(`[lyrics-service] running on http://localhost:${PORT}`);

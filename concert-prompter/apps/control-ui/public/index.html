@@ -258,6 +258,32 @@
       </div>
 
       <aside class="lyrics-panel panel">
+        <section class="program-panel">
+          <div class="section-header">
+            <h2>예배 순서표</h2>
+            <span id="programStatus" class="save-status">0개</span>
+          </div>
+
+          <div class="program-actions">
+            <button id="addCurrentSongProgramButton" class="small-button" type="button">현재 곡 추가</button>
+            <button id="addCurrentPptProgramButton" class="small-button" type="button">현재 PPT 추가</button>
+          </div>
+
+          <div class="program-note-form">
+            <input id="programNoteInput" type="text" placeholder="예: 대표기도, 광고, 말씀" />
+            <button id="addProgramNoteButton" class="small-button" type="button">메모 추가</button>
+          </div>
+
+          <div class="program-toolbar">
+            <button id="applyProgramItemButton" class="small-button primary" type="button">적용</button>
+            <button id="moveProgramItemUpButton" class="small-button" type="button">위로</button>
+            <button id="moveProgramItemDownButton" class="small-button" type="button">아래로</button>
+            <button id="deleteProgramItemButton" class="small-button danger" type="button">삭제</button>
+          </div>
+
+          <ol id="programList" class="program-list"></ol>
+        </section>
+
         <div class="song-toolbar">
           <label for="songSelect">곡 선택</label>
           <div class="song-nav">
