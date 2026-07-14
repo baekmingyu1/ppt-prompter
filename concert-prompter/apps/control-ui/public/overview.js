@@ -453,15 +453,15 @@ function renderProgramOverview(payload) {
       frame.appendChild(image);
       button.append(frame, number);
     } else {
-      const number = document.createElement('span');
-      number.className = 'overview-slide-number';
-      number.textContent = String(index + 1);
       const text = document.createElement('span');
       text.className = 'overview-lyric-text';
       text.textContent = entry.type === 'note'
         ? `[메모] ${entry.title}`
         : entry.lines.map((line) => line || '(빈 줄)').join('\n');
-      button.append(number, text);
+      const number = document.createElement('span');
+      number.className = 'overview-slide-number';
+      number.textContent = String(index + 1);
+      button.append(text, number);
     }
 
     button.addEventListener('click', () => {

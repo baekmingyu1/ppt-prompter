@@ -31,7 +31,7 @@ function applyDisplaySettings(settings = {}) {
   if (singerSettings.fontSizeVw) {
     singerFontSizeVw = Number(singerSettings.fontSizeVw);
     currentLyric.style.fontSize = `${singerFontSizeVw}vw`;
-    nextLyric.style.fontSize = `${Math.max(singerFontSizeVw * 0.58, 2.2)}vw`;
+    nextLyric.style.fontSize = `${singerFontSizeVw}vw`;
   }
 
   if (singerSettings.fontColor) {
@@ -40,7 +40,7 @@ function applyDisplaySettings(settings = {}) {
 
   if (singerSettings.fontWeight) {
     currentLyric.style.fontWeight = singerSettings.fontWeight;
-    nextLyric.style.fontWeight = Math.max(singerSettings.fontWeight - 200, 300);
+    nextLyric.style.fontWeight = singerSettings.fontWeight;
   }
 
   document.documentElement.style.setProperty('--singer-lyric-y', `${singerSettings.verticalPositionPercent || 50}%`);
@@ -86,10 +86,10 @@ function fitSingerLyricsToWidth() {
     if (currentLyric.hidden) return;
 
     const currentBase = singerFontSizeVw;
-    const nextBase = Math.max(singerFontSizeVw * 0.58, 2.2);
+    const nextBase = singerFontSizeVw;
 
     fitLyricElementToWidth(currentLyric, currentLyricMeasure, latestPayload?.currentLines || [], currentBase, 2.5);
-    fitLyricElementToWidth(nextLyric, nextLyricMeasure, latestPayload?.nextLines || [], nextBase, 1.8);
+    fitLyricElementToWidth(nextLyric, nextLyricMeasure, latestPayload?.nextLines || [], nextBase, 2.5);
   });
 }
 
