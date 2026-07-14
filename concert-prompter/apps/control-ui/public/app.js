@@ -338,8 +338,8 @@ function renderSingerControl(payload) {
   if (document.activeElement !== singerMessageInput) {
     singerMessageInput.value = singerState.message || '';
   }
-  singerCurrentLyric.textContent = payload.state.blank ? '(鍮??붾㈃)' : getLinesText(singerState.currentLines);
-  singerNextLyric.textContent = isEnabled ? '' : (payload.state.blank ? '(鍮??붾㈃)' : getLinesText(singerState.nextLines));
+  singerCurrentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(singerState.currentLines);
+  singerNextLyric.textContent = isEnabled ? '' : (payload.state.blank ? '(빈 화면)' : getLinesText(singerState.nextLines));
   updateSingerLyricScrollState();
 }
 
