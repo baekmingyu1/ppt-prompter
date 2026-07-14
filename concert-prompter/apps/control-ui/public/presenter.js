@@ -87,6 +87,46 @@ function applyProgramItem(programItemId) {
   });
 }
 
+function getCurrentProgramItem(payload) {
+  const items = payload.program?.items || [];
+  return items.find((item) => item.id === payload.program?.currentItemId) || null;
+}
+
+function getAdjacentProgramItem(payload, delta) {
+  const items = payload.program?.items || [];
+  const currentIndex = items.findIndex((item) => item.id === payload.program?.currentItemId);
+  let nextIndex = currentIndex + delta;
+
+  while (nextIndex >= 0 && nextIndex < items.length) {
+    if (!items[nextIndex].missing) {
+      return items[nextIndex];
+    }
+    nextIndex += delta;
+  }
+
+  return null;
+}
+
+function renderProgramItemPreview(frame, item, emptyText = '다음 순서 없음') {
+  if (!item || item.missing) {
+    renderTextFrame(frame, [emptyText]);
+    return;
+  }
+
+  if (item.type === 'ppt') {
+    renderPptFrame(frame, item.slides?.[0], item.title || 'PPT');
+    return;
+  }
+
+  if (item.type === 'song') {
+    const lineCount = Number(latestState?.state?.displaySettings?.lineCount || 1);
+    renderTextFrame(frame, item.lyrics?.slice(0, lineCount), item.title || '가사');
+    return;
+  }
+
+  renderTextFrame(frame, [`[메모]\n${item.title}`]);
+}
+
 function getLinesText(lines, fallback = '-') {
   return Array.isArray(lines) && lines.length ? lines.join('\n') : fallback;
 }
@@ -130,6 +170,7 @@ function renderPptPresenter(payload) {
   const slideIndex = Number(payload.ppt?.slideIndex || 0);
   const currentSlide = payload.ppt?.currentSlide || slides[slideIndex];
   const nextSlide = slides[slideIndex + 1];
+  const nextProgramItem = getAdjacentProgramItem(payload, 1);
   const totalSlides = slides.length;
   const progress = totalSlides ? `${slideIndex + 1} / ${totalSlides}` : '0 / 0';
 
@@ -140,10 +181,14 @@ function renderPptPresenter(payload) {
   presenterNotes.textContent = '';
 
   renderPptFrame(presenterCurrentFrame, currentSlide);
-  renderPptFrame(presenterNextFrame, nextSlide, '다음 슬라이드 없음');
+  if (nextSlide) {
+    renderPptFrame(presenterNextFrame, nextSlide, '다음 슬라이드 없음');
+  } else {
+    renderProgramItemPreview(presenterNextFrame, nextProgramItem);
+  }
 
   presenterPrevButton.disabled = slideIndex <= 0;
-  presenterNextButton.disabled = !totalSlides || slideIndex >= totalSlides - 1;
+  presenterNextButton.disabled = !totalSlides || (slideIndex >= totalSlides - 1 && !nextProgramItem);
 }
 
 function renderLyricsPresenter(payload) {
@@ -153,24 +198,44 @@ function renderLyricsPresenter(payload) {
   const totalGroups = Math.max(Math.ceil(lyrics.length / lineCount), 1);
   const currentGroup = Math.floor(lineIndex / lineCount) + 1;
   const progress = `${currentGroup} / ${totalGroups}`;
+  const nextProgramItem = getAdjacentProgramItem(payload, 1);
+  const isLastGroup = lineIndex + lineCount >= lyrics.length;
 
   presenterCurrentLabel.textContent = payload.song?.title || '가사';
-  presenterNextLabel.textContent = '다음 가사';
+  presenterNextLabel.textContent = isLastGroup && nextProgramItem ? '다음 순서' : '다음 가사';
   presenterProgress.textContent = progress;
   presenterFooterProgress.textContent = `가사 ${progress}`;
   presenterNotes.textContent = payload.song?.artist || '';
 
   renderTextFrame(presenterCurrentFrame, payload.currentLines, '현재 가사 없음');
-  renderTextFrame(presenterNextFrame, payload.nextLines, '다음 가사 없음');
+  if (isLastGroup && nextProgramItem) {
+    renderProgramItemPreview(presenterNextFrame, nextProgramItem);
+  } else {
+    renderTextFrame(presenterNextFrame, payload.nextLines, '다음 가사 없음');
+  }
 
   presenterPrevButton.disabled = lineIndex <= 0;
-  presenterNextButton.disabled = lineIndex + lineCount >= lyrics.length;
+  presenterNextButton.disabled = isLastGroup && !nextProgramItem;
 }
 
 function render(payload) {
   latestState = payload;
   renderProgramSelect(payload);
   renderModeState(payload);
+
+  const currentProgramItem = getCurrentProgramItem(payload);
+  if (currentProgramItem?.type === 'note') {
+    presenterCurrentLabel.textContent = '메모';
+    presenterNextLabel.textContent = '다음 순서';
+    presenterProgress.textContent = '-';
+    presenterFooterProgress.textContent = currentProgramItem.title;
+    presenterNotes.textContent = '';
+    renderTextFrame(presenterCurrentFrame, [`[메모]\n${currentProgramItem.title}`]);
+    renderProgramItemPreview(presenterNextFrame, getAdjacentProgramItem(payload, 1));
+    presenterPrevButton.disabled = !getAdjacentProgramItem(payload, -1);
+    presenterNextButton.disabled = !getAdjacentProgramItem(payload, 1);
+    return;
+  }
 
   if (payload.viewMode === 'ppt' && payload.ppt?.slides?.length) {
     renderPptPresenter(payload);
@@ -181,6 +246,14 @@ function render(payload) {
 }
 
 function movePrevious() {
+  const currentProgramItem = latestState ? getCurrentProgramItem(latestState) : null;
+  const previousProgramItem = latestState ? getAdjacentProgramItem(latestState, -1) : null;
+
+  if (currentProgramItem?.type === 'note' && previousProgramItem) {
+    applyProgramItem(previousProgramItem.id);
+    return;
+  }
+
   if (latestState?.viewMode === 'ppt' && latestState?.ppt?.slides?.length) {
     socket.emit('control:prevPptSlide');
     return;
@@ -190,9 +263,36 @@ function movePrevious() {
 }
 
 function moveNext() {
+  const nextProgramItem = latestState ? getAdjacentProgramItem(latestState, 1) : null;
+  const currentProgramItem = latestState ? getCurrentProgramItem(latestState) : null;
+
+  if (currentProgramItem?.type === 'note' && nextProgramItem) {
+    applyProgramItem(nextProgramItem.id);
+    return;
+  }
+
   if (latestState?.viewMode === 'ppt' && latestState?.ppt?.slides?.length) {
+    const slideIndex = Number(latestState.ppt?.slideIndex || 0);
+    const totalSlides = latestState.ppt.slides.length;
+    if (slideIndex >= totalSlides - 1 && nextProgramItem) {
+      applyProgramItem(nextProgramItem.id);
+      return;
+    }
+
     socket.emit('control:nextPptSlide');
     return;
+  }
+
+  if (latestState?.program?.currentItemId) {
+    const lineCount = Number(latestState.state?.displaySettings?.lineCount || 1);
+    const lineIndex = Number(latestState.state?.lineIndex || 0);
+    const totalLines = latestState.lyrics?.length || 0;
+    const isLastGroup = lineIndex + lineCount >= totalLines;
+
+    if (isLastGroup && nextProgramItem) {
+      applyProgramItem(nextProgramItem.id);
+      return;
+    }
   }
 
   socket.emit('control:next');

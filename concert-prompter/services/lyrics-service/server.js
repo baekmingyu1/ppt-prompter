@@ -342,7 +342,11 @@ function getProgramPayload() {
     return {
       ...item,
       title,
-      missing
+      missing,
+      lyrics: song?.lyrics || [],
+      artist: song?.artist || '',
+      slides: Array.isArray(ppt?.slides) ? ppt.slides : [],
+      filename: ppt?.filename || ''
     };
   });
 }
@@ -1227,7 +1231,7 @@ async function reorderProgramItem(programItemId, targetIndex) {
   touchState();
 }
 
-function applyProgramItem(programItemId) {
+function applyProgramItem(programItemId, options = {}) {
   const item = programItems.find((entry) => entry.id === programItemId);
 
   if (!item) {
@@ -1241,6 +1245,11 @@ function applyProgramItem(programItemId) {
     setSong(item.refId, {
       skipUndo: true
     });
+    if (Number.isInteger(Number(options.lineIndex))) {
+      state.lineIndex = clampLineIndex(Number(options.lineIndex), getCurrentSong());
+      syncSingerLineIndex(getCurrentSong());
+      touchState();
+    }
     return;
   }
 
@@ -1248,6 +1257,11 @@ function applyProgramItem(programItemId) {
     setPptById(item.refId, {
       skipUndo: true
     });
+    if (Number.isInteger(Number(options.slideIndex))) {
+      state.ppt.slideIndex = clampPptSlideIndex(Number(options.slideIndex));
+      state.viewMode = 'ppt';
+      touchState();
+    }
     return;
   }
 
@@ -1940,9 +1954,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('control:applyProgramItem', ({ programItemId }) => {
+  socket.on('control:applyProgramItem', ({ programItemId, lineIndex, slideIndex }) => {
     try {
-      applyProgramItem(String(programItemId || ''));
+      applyProgramItem(String(programItemId || ''), {
+        lineIndex,
+        slideIndex
+      });
       emitState();
     } catch (error) {
       socket.emit('errorMessage', {
