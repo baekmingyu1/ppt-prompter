@@ -17,6 +17,7 @@ const nextLyric = document.getElementById('nextLyric');
 const controlPptPreview = document.getElementById('controlPptPreview');
 const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
+const undoButton = document.getElementById('undoButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
 const emergencyStatus = document.getElementById('emergencyStatus');
@@ -509,6 +510,7 @@ function render(payload) {
 
   currentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.currentLines);
   nextLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.nextLines);
+  undoButton.disabled = !payload.canUndo;
   updateCurrentLyricScrollState();
   renderSingerControl(payload);
   renderPptControl(payload);
@@ -736,6 +738,10 @@ prevButton.addEventListener('click', () => {
 
 nextButton.addEventListener('click', () => {
   socket.emit('control:next');
+});
+
+undoButton.addEventListener('click', () => {
+  socket.emit('control:undo');
 });
 
 blankOnButton.addEventListener('click', () => {

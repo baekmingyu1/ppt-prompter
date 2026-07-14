@@ -137,6 +137,7 @@ const DEFAULT_DISPLAY_SETTINGS = {
 let songs = [];
 let ppts = [];
 let programItems = [];
+let undoStack = [];
 let state = {
   songId: null,
   programItemId: '',
@@ -193,7 +194,8 @@ async function loadPpts() {
 
   if (ppts.length > 0 && !state.ppt.id) {
     setPptById(ppts[0].id, {
-      switchToPptMode: false
+      switchToPptMode: false,
+      skipUndo: true
     });
   }
 }
@@ -362,6 +364,30 @@ function touchState() {
   state.updatedAt = new Date().toISOString();
 }
 
+function cloneStateForUndo() {
+  return JSON.parse(JSON.stringify(state));
+}
+
+function pushUndoState() {
+  undoStack.push(cloneStateForUndo());
+
+  if (undoStack.length > 20) {
+    undoStack = undoStack.slice(-20);
+  }
+}
+
+function undoLastState() {
+  const previousState = undoStack.pop();
+
+  if (!previousState) {
+    return false;
+  }
+
+  state = previousState;
+  touchState();
+  return true;
+}
+
 function getVisibleLines(lyrics, startIndex, count) {
   return lyrics.slice(startIndex, startIndex + count);
 }
@@ -395,6 +421,9 @@ function setPptById(pptId, options = {}) {
     throw new Error(`Unknown pptId: ${pptId}`);
   }
 
+  if (!options.skipUndo) {
+    pushUndoState();
+  }
   state.ppt = {
     id: ppt.id,
     filename: ppt.filename,
@@ -738,6 +767,7 @@ function buildDisplaySettingsUpdate(payload = {}) {
 }
 
 function updateDisplaySettings(settings) {
+  pushUndoState();
   state.displaySettings = normalizeDisplaySettings(buildDisplaySettingsUpdate(settings));
   touchState();
 }
@@ -768,6 +798,7 @@ function buildControlPayload() {
   return {
     role: 'control',
     state,
+    canUndo: undoStack.length > 0,
     songs: songs.map((item) => ({
       id: item.id,
       title: item.title,
@@ -886,13 +917,16 @@ function emitState() {
   io.to('singer').emit('state', buildSingerPayload());
 }
 
-function setSong(songId) {
+function setSong(songId, options = {}) {
   const exists = songs.some((song) => song.id === songId);
 
   if (!exists) {
     throw new Error(`존재하지 않는 songId입니다: ${songId}`);
   }
 
+  if (!options.skipUndo) {
+    pushUndoState();
+  }
   state.songId = songId;
   state.lineIndex = 0;
   syncSingerLineIndex(getCurrentSong());
@@ -901,6 +935,7 @@ function setSong(songId) {
 
 function moveLine(delta) {
   const song = getCurrentSong();
+  pushUndoState();
   state.lineIndex = clampLineIndex(state.lineIndex + delta * state.displaySettings.lineCount, song);
   syncSingerLineIndex(song);
   touchState();
@@ -908,12 +943,14 @@ function moveLine(delta) {
 
 function setLineIndex(index) {
   const song = getCurrentSong();
+  pushUndoState();
   state.lineIndex = clampLineIndex(index, song);
   syncSingerLineIndex(song);
   touchState();
 }
 
 function setSingerControlEnabled(enabled) {
+  pushUndoState();
   state.singerControl.enabled = Boolean(enabled);
   state.singerControl.lineIndex = state.lineIndex;
   touchState();
@@ -921,18 +958,21 @@ function setSingerControlEnabled(enabled) {
 
 function setSingerMessage(message) {
   const nextMessage = String(message || '').slice(0, 1000);
+  pushUndoState();
   state.singerControl.message = nextMessage;
   state.singerControl.enabled = Boolean(nextMessage.trim());
   touchState();
 }
 
 function toggleBlank(blank) {
+  pushUndoState();
   state.blank = Boolean(blank);
   touchState();
 }
 
 function setEmergencyMessage(message) {
   const nextMessage = String(message || '').trim().slice(0, 500);
+  pushUndoState();
   state.emergencyMessage = nextMessage;
 
   if (nextMessage) {
@@ -943,6 +983,7 @@ function setEmergencyMessage(message) {
 }
 
 function setViewMode(mode) {
+  pushUndoState();
   state.viewMode = normalizeViewMode(mode);
   touchState();
 }
@@ -950,6 +991,7 @@ function setViewMode(mode) {
 function movePptSlide(delta) {
   if (state.ppt.slides.length === 0) return;
 
+  pushUndoState();
   state.ppt.slideIndex = clampPptSlideIndex(state.ppt.slideIndex + delta);
   state.viewMode = 'ppt';
   touchState();
@@ -958,6 +1000,7 @@ function movePptSlide(delta) {
 function setPptSlideIndex(index) {
   if (state.ppt.slides.length === 0) return;
 
+  pushUndoState();
   state.ppt.slideIndex = clampPptSlideIndex(index);
   state.viewMode = 'ppt';
   touchState();
@@ -1161,15 +1204,20 @@ function applyProgramItem(programItemId) {
     throw new Error('Unknown program item.');
   }
 
+  pushUndoState();
   state.programItemId = item.id;
 
   if (item.type === 'song') {
-    setSong(item.refId);
+    setSong(item.refId, {
+      skipUndo: true
+    });
     return;
   }
 
   if (item.type === 'ppt') {
-    setPptById(item.refId);
+    setPptById(item.refId, {
+      skipUndo: true
+    });
     return;
   }
 
@@ -1221,10 +1269,12 @@ async function restoreBackup(payload) {
     lineIndex: 0,
     message: ''
   };
+  undoStack = [];
 
   if (ppts.length > 0) {
     setPptById(ppts[0].id, {
-      switchToPptMode: false
+      switchToPptMode: false,
+      skipUndo: true
     });
   } else {
     state.ppt = {
@@ -1322,6 +1372,17 @@ app.post('/api/control/prev', (req, res) => {
 
   res.json({
     ok: true,
+    state
+  });
+});
+
+app.post('/api/control/undo', (req, res) => {
+  const undone = undoLastState();
+  emitState();
+
+  res.json({
+    ok: true,
+    undone,
     state
   });
 });
@@ -1598,6 +1659,11 @@ io.on('connection', (socket) => {
 
   socket.on('control:prev', () => {
     moveLine(-1);
+    emitState();
+  });
+
+  socket.on('control:undo', () => {
+    undoLastState();
     emitState();
   });
 
