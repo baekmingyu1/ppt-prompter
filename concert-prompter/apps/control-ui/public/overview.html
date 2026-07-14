@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Concert Prompter Overview</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="overview-body">
+  <main class="overview-page">
+    <header class="overview-header">
+      <a class="overview-back-button" href="./index.html" aria-label="제어 화면으로 돌아가기">←</a>
+      <div class="overview-title-group">
+        <h1>전체 보기</h1>
+        <p id="overviewSubtitle">가사와 PPT를 한 번에 이동할 수 있습니다</p>
+      </div>
+      <div class="overview-jump-panel" aria-live="polite">
+        <span id="overviewJumpLabel" class="overview-jump-label">번호 이동</span>
+        <div id="overviewJumpDisplay" class="overview-jump-display">입력 대기</div>
+      </div>
+    </header>
+
+    <section class="overview-toolbar">
+      <div class="overview-mode-switch" role="tablist" aria-label="전체 보기 모드">
+        <button id="overviewLyricsModeButton" class="overview-mode-button" type="button" role="tab" aria-selected="true">가사</button>
+        <button id="overviewPptModeButton" class="overview-mode-button" type="button" role="tab" aria-selected="false">PPT</button>
+      </div>
+    </section>
+
+    <section id="overviewEmptyState" class="overview-empty panel" hidden>
+      <h2 id="overviewEmptyTitle">표시할 내용이 없습니다</h2>
+      <p id="overviewEmptyMessage">제어 화면에서 내용을 준비한 뒤 다시 열어주세요.</p>
+    </section>
+
+    <section id="overviewGrid" class="overview-grid" aria-live="polite"></section>
+  </main>
+
+  <script src="/config.js"></script>
+  <script>
+    document.write(`<script src="${window.__PROMPTER_CONFIG__?.lyricsServiceUrl || ''}/socket.io/socket.io.js"><\/script>`);
+  </script>
+  <script src="./overview.js"></script>
+</body>
+</html>

@@ -685,14 +685,29 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (event.key === 'ArrowRight' || event.key === ' ') {
+  if (event.key === 'ArrowRight') {
     event.preventDefault();
+    if (latestState?.viewMode === 'ppt' && latestState?.ppt?.slides?.length) {
+      socket.emit('control:nextPptSlide');
+      return;
+    }
+
     socket.emit('control:next');
   }
 
   if (event.key === 'ArrowLeft') {
     event.preventDefault();
+    if (latestState?.viewMode === 'ppt' && latestState?.ppt?.slides?.length) {
+      socket.emit('control:prevPptSlide');
+      return;
+    }
+
     socket.emit('control:prev');
+  }
+
+  if (event.key === ' ') {
+    event.preventDefault();
+    socket.emit('control:next');
   }
 
   if (event.key.toLowerCase() === 'b') {

@@ -91,6 +91,10 @@ app.get('/control/edit', (req, res) => {
   res.sendFile(path.join(CONTROL_UI_PATH, 'edit.html'));
 });
 
+app.get('/control/overview', (req, res) => {
+  res.sendFile(path.join(CONTROL_UI_PATH, 'overview.html'));
+});
+
 const io = new Server(server, {
   cors: {
     origin: CORS_ORIGIN,
@@ -816,6 +820,16 @@ app.post('/api/control/blank', (req, res) => {
   });
 });
 
+app.post('/api/control/view-mode', (req, res) => {
+  setViewMode(req.body.mode);
+  emitState();
+
+  res.json({
+    ok: true,
+    state
+  });
+});
+
 app.post('/api/control/display-settings', (req, res) => {
   try {
     updateDisplaySettings(req.body);
@@ -881,6 +895,26 @@ app.post('/api/control/ppt/upload', express.raw({
       message: error.message
     });
   }
+});
+
+app.post('/api/control/ppt/slide', (req, res) => {
+  const slideIndex = Number(req.body.slideIndex);
+
+  if (!Number.isInteger(slideIndex)) {
+    res.status(400).json({
+      ok: false,
+      message: 'slideIndex must be an integer.'
+    });
+    return;
+  }
+
+  setPptSlideIndex(slideIndex);
+  emitState();
+
+  res.json({
+    ok: true,
+    state
+  });
 });
 
 
