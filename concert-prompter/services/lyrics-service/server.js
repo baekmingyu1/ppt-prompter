@@ -96,6 +96,10 @@ app.get('/control/overview', (req, res) => {
   res.sendFile(path.join(CONTROL_UI_PATH, 'overview.html'));
 });
 
+app.get('/control/presenter', (req, res) => {
+  res.sendFile(path.join(CONTROL_UI_PATH, 'presenter.html'));
+});
+
 const io = new Server(server, {
   cors: {
     origin: CORS_ORIGIN,

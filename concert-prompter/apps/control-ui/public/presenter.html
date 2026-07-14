@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Concert Prompter Presenter View</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="presenter-body">
+  <main class="presenter-page">
+    <header class="presenter-header">
+      <div class="presenter-meta">
+        <a class="presenter-back" href="./index.html" aria-label="제어 화면으로 돌아가기">←</a>
+        <span id="presenterElapsed">0:00</span>
+        <span id="presenterClock">--:--</span>
+      </div>
+
+      <div class="presenter-mode-switch" role="tablist" aria-label="발표자 보기 모드">
+        <button id="presenterLyricsModeButton" class="presenter-mode-button" type="button" role="tab" aria-selected="true">가사</button>
+        <button id="presenterPptModeButton" class="presenter-mode-button" type="button" role="tab" aria-selected="false">PPT</button>
+      </div>
+    </header>
+
+    <section class="presenter-stage">
+      <section class="presenter-current">
+        <div class="presenter-section-title">
+          <span id="presenterCurrentLabel">현재</span>
+          <span id="presenterProgress">-</span>
+        </div>
+        <div id="presenterCurrentFrame" class="presenter-frame"></div>
+      </section>
+
+      <aside class="presenter-side">
+        <div class="presenter-section-title">
+          <span id="presenterNextLabel">다음</span>
+        </div>
+        <div id="presenterNextFrame" class="presenter-frame presenter-next-frame"></div>
+        <div id="presenterNotes" class="presenter-notes"></div>
+      </aside>
+    </section>
+
+    <footer class="presenter-footer">
+      <button id="presenterPrevButton" class="presenter-nav-button" type="button" aria-label="이전">‹</button>
+      <span id="presenterFooterProgress">-</span>
+      <button id="presenterNextButton" class="presenter-nav-button" type="button" aria-label="다음">›</button>
+    </footer>
+  </main>
+
+  <script src="/config.js"></script>
+  <script>
+    document.write(`<script src="${window.__PROMPTER_CONFIG__?.lyricsServiceUrl || ''}/socket.io/socket.io.js"><\/script>`);
+  </script>
+  <script src="./presenter.js"></script>
+</body>
+</html>
