@@ -9,6 +9,7 @@ const pptSlide = document.getElementById('pptSlide');
 const lyricSections = Array.from(document.querySelectorAll('.current-section, .next-section'));
 const currentLyricMeasure = document.createElement('div');
 const nextLyricMeasure = document.createElement('div');
+const NEXT_LYRIC_FONT_RATIO = 0.75;
 let singerFontSizeVw = 6;
 let latestPayload = null;
 
@@ -30,8 +31,7 @@ function applyDisplaySettings(settings = {}) {
 
   if (singerSettings.fontSizeVw) {
     singerFontSizeVw = Number(singerSettings.fontSizeVw);
-    currentLyric.style.fontSize = `${singerFontSizeVw}vw`;
-    nextLyric.style.fontSize = `${singerFontSizeVw}vw`;
+    setSingerLyricsFontSize(singerFontSizeVw);
   }
 
   if (singerSettings.fontColor) {
@@ -56,10 +56,10 @@ function getLongestLine(lines = []) {
 
 function setSingerLyricsFontSize(fontSizeVw) {
   currentLyric.style.fontSize = `${fontSizeVw.toFixed(1)}vw`;
-  nextLyric.style.fontSize = `${fontSizeVw.toFixed(1)}vw`;
+  nextLyric.style.fontSize = `${(fontSizeVw * NEXT_LYRIC_FONT_RATIO).toFixed(1)}vw`;
 }
 
-function getFittedFontSizeForWidth(measures, lines, baseFontSizeVw, minFontSizeVw) {
+function getFittedFontSizeForWidth(lines, baseFontSizeVw, minFontSizeVw) {
   const longestLine = getLongestLine(lines);
 
   if (!longestLine) {
@@ -67,20 +67,23 @@ function getFittedFontSizeForWidth(measures, lines, baseFontSizeVw, minFontSizeV
   }
 
   let nextFontSize = baseFontSizeVw;
-  measures.forEach((measure) => {
-    measure.style.fontWeight = currentLyric.style.fontWeight;
-    measure.textContent = longestLine;
-  });
+  currentLyricMeasure.style.fontWeight = currentLyric.style.fontWeight;
+  currentLyricMeasure.textContent = longestLine;
+  nextLyricMeasure.style.fontWeight = nextLyric.style.fontWeight;
+  nextLyricMeasure.textContent = longestLine;
 
   const applyMeasureFontSize = () => {
-    measures.forEach((measure) => {
-      measure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
-    });
+    currentLyricMeasure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
+    nextLyricMeasure.style.fontSize = `${(nextFontSize * NEXT_LYRIC_FONT_RATIO).toFixed(1)}vw`;
   };
 
   applyMeasureFontSize();
 
-  while (measures.some((measure) => measure.scrollWidth > measure.clientWidth) && nextFontSize > minFontSizeVw) {
+  while (
+    (currentLyricMeasure.scrollWidth > currentLyricMeasure.clientWidth
+      || nextLyricMeasure.scrollWidth > nextLyricMeasure.clientWidth)
+    && nextFontSize > minFontSizeVw
+  ) {
     nextFontSize = Math.max(nextFontSize - 0.1, minFontSizeVw);
     applyMeasureFontSize();
   }
@@ -98,12 +101,7 @@ function fitSingerLyricsToWidth() {
         ...(latestPayload?.currentLines || []),
         ...(latestPayload?.nextLines || [])
       ];
-    let fittedFontSize = getFittedFontSizeForWidth(
-      [currentLyricMeasure, nextLyricMeasure],
-      songLines,
-      singerFontSizeVw,
-      2.5
-    );
+    let fittedFontSize = getFittedFontSizeForWidth(songLines, singerFontSizeVw, 2.5);
 
     setSingerLyricsFontSize(fittedFontSize);
 
