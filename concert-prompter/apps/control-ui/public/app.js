@@ -19,6 +19,11 @@ const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
+const emergencyStatus = document.getElementById('emergencyStatus');
+const emergencyMessageInput = document.getElementById('emergencyMessageInput');
+const sendEmergencyMessageButton = document.getElementById('sendEmergencyMessageButton');
+const clearEmergencyMessageButton = document.getElementById('clearEmergencyMessageButton');
+const emergencyPresetButtons = Array.from(document.querySelectorAll('.emergency-preset-button'));
 const pptInput = document.getElementById('pptInput');
 const pptSelect = document.getElementById('pptSelect');
 const deletePptButton = document.getElementById('deletePptButton');
@@ -477,6 +482,17 @@ function renderBlankControl(payload) {
   blankOffButton.setAttribute('aria-pressed', String(!isBlank));
 }
 
+function renderEmergencyControl(payload) {
+  const message = String(payload.state.emergencyMessage || '');
+  emergencyStatus.textContent = message ? '표시 중' : '꺼짐';
+  emergencyStatus.classList.toggle('saved', Boolean(message));
+  clearEmergencyMessageButton.disabled = !message;
+
+  if (document.activeElement !== emergencyMessageInput) {
+    emergencyMessageInput.value = message;
+  }
+}
+
 function render(payload) {
   latestState = payload;
 
@@ -494,6 +510,7 @@ function render(payload) {
   renderSingerControl(payload);
   renderPptControl(payload);
   renderBlankControl(payload);
+  renderEmergencyControl(payload);
 }
 
 socket.on('connect', () => {
@@ -655,6 +672,32 @@ blankOffButton.addEventListener('click', () => {
   socket.emit('control:blank', {
     blank: false
   });
+});
+
+function setEmergencyMessage(message) {
+  socket.emit('control:setEmergencyMessage', {
+    message
+  });
+}
+
+emergencyPresetButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    setEmergencyMessage(button.dataset.message || button.textContent || '');
+  });
+});
+
+sendEmergencyMessageButton.addEventListener('click', () => {
+  setEmergencyMessage(emergencyMessageInput.value);
+});
+
+emergencyMessageInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  setEmergencyMessage(emergencyMessageInput.value);
+});
+
+clearEmergencyMessageButton.addEventListener('click', () => {
+  setEmergencyMessage('');
 });
 
 lyricsModeButton.addEventListener('click', () => {

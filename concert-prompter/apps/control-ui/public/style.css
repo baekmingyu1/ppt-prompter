@@ -941,6 +941,35 @@ textarea {
   gap: 12px;
 }
 
+.emergency-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.emergency-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.emergency-custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.emergency-preset-button {
+  background: #3b2b12;
+  color: #fde68a;
+}
+
+.emergency-preset-button:hover {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fef3c7;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.36);
+}
+
 .ppt-buttons {
   grid-template-columns: repeat(2, 1fr);
   margin-bottom: 0;

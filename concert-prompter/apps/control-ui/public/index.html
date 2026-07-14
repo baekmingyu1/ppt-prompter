@@ -89,6 +89,24 @@
           <button id="blankOffButton" type="button">빈 화면 OFF</button>
         </section>
 
+        <section class="panel emergency-panel">
+          <div class="section-header">
+            <h2>긴급 문구</h2>
+            <span id="emergencyStatus" class="save-status">꺼짐</span>
+          </div>
+          <div class="emergency-presets">
+            <button class="small-button emergency-preset-button" type="button" data-message="잠시만 기다려 주세요">잠시만</button>
+            <button class="small-button emergency-preset-button" type="button" data-message="기도 중입니다">기도 중</button>
+            <button class="small-button emergency-preset-button" type="button" data-message="광고 준비 중입니다">광고 준비</button>
+            <button class="small-button emergency-preset-button" type="button" data-message="곧 시작합니다">곧 시작</button>
+          </div>
+          <div class="emergency-custom">
+            <input id="emergencyMessageInput" type="text" placeholder="직접 입력할 긴급 문구" />
+            <button id="sendEmergencyMessageButton" class="small-button primary" type="button">띄우기</button>
+            <button id="clearEmergencyMessageButton" class="small-button" type="button">해제</button>
+          </div>
+        </section>
+
         <section class="panel ppt-control-panel">
           <div class="section-header">
             <h2>PPT 제어</h2>

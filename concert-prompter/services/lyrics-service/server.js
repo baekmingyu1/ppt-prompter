@@ -153,6 +153,7 @@ let state = {
     lineIndex: 0,
     message: ''
   },
+  emergencyMessage: '',
   blank: false,
   displaySettings: JSON.parse(JSON.stringify(DEFAULT_DISPLAY_SETTINGS)),
   updatedAt: new Date().toISOString()
@@ -741,17 +742,23 @@ function updateDisplaySettings(settings) {
   touchState();
 }
 
+function getEmergencyLines() {
+  const message = String(state.emergencyMessage || '').trim();
+  return message ? message.split(/\r?\n/).filter(Boolean) : [];
+}
+
 function buildControlPayload() {
   const song = getCurrentSong();
   const lyrics = song.lyrics || [];
   const lineCount = state.displaySettings.lineCount;
-  const currentLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex, lineCount);
+  const emergencyLines = state.blank ? [] : getEmergencyLines();
+  const currentLines = state.blank ? [] : (emergencyLines.length ? emergencyLines : getVisibleLines(lyrics, state.lineIndex, lineCount));
   const nextLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex + lineCount, lineCount);
   const singerLineIndex = getEffectiveSingerLineIndex(song);
   const singerMessageLines = getSingerMessageLines();
-  const singerCurrentLines = state.singerControl.enabled
-    ? singerMessageLines
-    : (state.blank ? [] : getVisibleLines(lyrics, singerLineIndex, lineCount));
+  const singerCurrentLines = state.blank
+    ? []
+    : (emergencyLines.length ? emergencyLines : (state.singerControl.enabled ? singerMessageLines : getVisibleLines(lyrics, singerLineIndex, lineCount)));
   const singerNextLines = state.singerControl.enabled
     ? []
     : (state.blank ? [] : getVisibleLines(lyrics, singerLineIndex + lineCount, lineCount));
@@ -804,7 +811,8 @@ function buildAudiencePayload() {
   const song = getCurrentSong();
   const lyrics = song.lyrics || [];
   const lineCount = state.displaySettings.lineCount;
-  const currentLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex, lineCount);
+  const emergencyLines = state.blank ? [] : getEmergencyLines();
+  const currentLines = state.blank ? [] : (emergencyLines.length ? emergencyLines : getVisibleLines(lyrics, state.lineIndex, lineCount));
 
   return {
     role: 'audience',
@@ -837,9 +845,10 @@ function buildSingerPayload() {
   const lineCount = state.displaySettings.lineCount;
   const lineIndex = getEffectiveSingerLineIndex(song);
   const messageLines = getSingerMessageLines();
+  const emergencyLines = state.blank ? [] : getEmergencyLines();
   const currentLines = state.blank
     ? []
-    : (state.singerControl.enabled ? messageLines : getVisibleLines(lyrics, lineIndex, lineCount));
+    : (emergencyLines.length ? emergencyLines : (state.singerControl.enabled ? messageLines : getVisibleLines(lyrics, lineIndex, lineCount)));
   const nextLines = state.blank || state.singerControl.enabled
     ? []
     : getVisibleLines(lyrics, lineIndex + lineCount, lineCount);
@@ -919,6 +928,17 @@ function setSingerMessage(message) {
 
 function toggleBlank(blank) {
   state.blank = Boolean(blank);
+  touchState();
+}
+
+function setEmergencyMessage(message) {
+  const nextMessage = String(message || '').trim().slice(0, 500);
+  state.emergencyMessage = nextMessage;
+
+  if (nextMessage) {
+    state.viewMode = 'lyrics';
+  }
+
   touchState();
 }
 
@@ -1250,6 +1270,16 @@ app.post('/api/control/blank', (req, res) => {
   });
 });
 
+app.post('/api/control/emergency-message', (req, res) => {
+  setEmergencyMessage(req.body.message);
+  emitState();
+
+  res.json({
+    ok: true,
+    state
+  });
+});
+
 app.post('/api/control/view-mode', (req, res) => {
   setViewMode(req.body.mode);
   emitState();
@@ -1512,6 +1542,11 @@ io.on('connection', (socket) => {
 
   socket.on('control:blank', ({ blank }) => {
     toggleBlank(blank);
+    emitState();
+  });
+
+  socket.on('control:setEmergencyMessage', ({ message }) => {
+    setEmergencyMessage(message);
     emitState();
   });
 
