@@ -167,7 +167,16 @@ function renderSongs(payload) {
     songSelect.appendChild(option);
   });
 
-  songSelect.value = payload.song.id;
+  const currentSongId = payload.song.id;
+  songSelect.value = currentSongId;
+
+  if (songSelect.value !== currentSongId) {
+    const option = document.createElement('option');
+    option.value = currentSongId;
+    option.textContent = `${payload.song.title} - ${payload.song.artist || ''}`;
+    songSelect.appendChild(option);
+    songSelect.value = currentSongId;
+  }
 
   const currentSongIndex = payload.songs.findIndex((song) => song.id === payload.song.id);
   prevSongButton.disabled = currentSongIndex <= 0;
@@ -199,6 +208,14 @@ function applyProgramItemByIndex(items, index) {
   socket.emit('control:applyProgramItem', {
     programItemId: item.id
   });
+}
+
+function moveProgramStep(delta) {
+  const items = latestState?.program?.items || [];
+  const currentItemId = latestState?.program?.currentItemId || '';
+  const baseIndex = getProgramStepBaseIndex(items, currentItemId);
+
+  applyProgramItemByIndex(items, baseIndex + delta);
 }
 
 function renderProgram(payload) {
@@ -289,10 +306,10 @@ function renderProgram(payload) {
   addCurrentPptProgramButton.disabled = !(payload.ppt?.id);
 
   prevProgramItemButton.onclick = () => {
-    applyProgramItemByIndex(items, baseIndex - 1);
+    moveProgramStep(-1);
   };
   nextProgramItemButton.onclick = () => {
-    applyProgramItemByIndex(items, baseIndex + 1);
+    moveProgramStep(1);
   };
 }
 
@@ -1107,6 +1124,12 @@ pptInput.addEventListener('change', async (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) {
+    return;
+  }
+
+  if (event.key === 'Tab') {
+    event.preventDefault();
+    moveProgramStep(event.shiftKey ? -1 : 1);
     return;
   }
 
