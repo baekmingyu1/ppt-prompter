@@ -11,7 +11,7 @@
     <header class="header">
       <div>
         <h1>가사 편집</h1>
-        <p>곡별 가사 목록을 수정하는 화면</p>
+        <p>곡별 가사 목록을 수정하고 새 곡을 추가하는 화면</p>
       </div>
       <div class="header-actions">
         <a class="button-link" href="./overview.html">전체 보기</a>
@@ -21,13 +21,18 @@
     </header>
 
     <section class="panel">
-      <label for="songSelect">편집할 곡</label>
+      <div class="song-toolbar">
+        <label for="songSelect">편집할 곡</label>
+        <div class="song-nav">
+          <button id="newSongButton" class="small-button" type="button">새 곡 추가</button>
+        </div>
+      </div>
       <select id="songSelect"></select>
     </section>
 
     <section class="panel editor-panel">
       <div class="section-header">
-        <h2>곡 정보 및 가사</h2>
+        <h2 id="editorHeading">곡 정보 및 가사</h2>
         <span id="saveStatus" class="save-status">저장 대기</span>
       </div>
 

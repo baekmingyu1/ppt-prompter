@@ -163,6 +163,17 @@ async function saveSongs() {
   await fs.writeFile(SONGS_PATH, `${JSON.stringify(songs, null, 2)}\n`, 'utf-8');
 }
 
+function createSongId() {
+  const numbers = songs
+    .map((song) => {
+      const match = String(song.id || '').match(/^song-(\d+)$/);
+      return match ? Number(match[1]) : 0;
+    })
+    .filter((value) => Number.isFinite(value));
+  const nextNumber = (numbers.length ? Math.max(...numbers) : 0) + 1;
+  return `song-${String(nextNumber).padStart(3, '0')}`;
+}
+
 function getCurrentSong() {
   return songs.find((song) => song.id === state.songId) || songs[0];
 }
@@ -726,6 +737,34 @@ async function updateSong({ songId, title, artist, lyrics }) {
   await saveSongs();
 }
 
+async function createSong({ title, artist, lyrics }) {
+  if (typeof title !== 'string' || title.trim() === '') {
+    throw new Error('곡 제목은 필수입니다.');
+  }
+
+  if (!Array.isArray(lyrics) || lyrics.length === 0) {
+    throw new Error('가사는 한 줄 이상 입력해야 합니다.');
+  }
+
+  const nextSong = {
+    id: createSongId(),
+    title: title.trim(),
+    artist: typeof artist === 'string' ? artist.trim() : '',
+    lyrics: lyrics.map((line) => String(line).trim()).filter(Boolean)
+  };
+
+  if (nextSong.lyrics.length === 0) {
+    throw new Error('가사는 한 줄 이상 입력해야 합니다.');
+  }
+
+  songs.push(nextSong);
+  state.songId = nextSong.id;
+  state.lineIndex = 0;
+  syncSingerLineIndex(nextSong);
+  touchState();
+  await saveSongs();
+}
+
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
@@ -935,6 +974,23 @@ app.post('/api/control/song/update', async (req, res) => {
   }
 });
 
+app.post('/api/control/song/create', async (req, res) => {
+  try {
+    await createSong(req.body);
+    emitState();
+
+    res.json({
+      ok: true,
+      state
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
 app.use((error, req, res, next) => {
   if (!error) {
     next();
@@ -1084,6 +1140,31 @@ io.on('connection', (socket) => {
   socket.on('control:updateSong', async (payload, callback) => {
     try {
       await updateSong(payload);
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:createSong', async (payload, callback) => {
+    try {
+      await createSong(payload);
       emitState();
 
       if (typeof callback === 'function') {

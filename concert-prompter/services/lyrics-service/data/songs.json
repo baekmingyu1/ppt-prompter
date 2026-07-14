@@ -88,5 +88,18 @@
       "We're blooming, yeah we're blooming, baby",
       "We're blooming, can you hug me?"
     ]
+  },
+  {
+    "id": "song-003",
+    "title": "추가 테스트",
+    "artist": "아티스트.,,?",
+    "lyrics": [
+      "1번째줄",
+      "2번째줄",
+      "3번째줄",
+      "4번째줄",
+      "5번째줄",
+      "6번째줄"
+    ]
   }
 ]
