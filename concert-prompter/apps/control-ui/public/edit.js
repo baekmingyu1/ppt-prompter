@@ -6,6 +6,7 @@ const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 const connectionStatus = document.getElementById('connectionStatus');
 const songSelect = document.getElementById('songSelect');
 const newSongButton = document.getElementById('newSongButton');
+const deleteSongButton = document.getElementById('deleteSongButton');
 const editorHeading = document.getElementById('editorHeading');
 const editTitle = document.getElementById('editTitle');
 const editArtist = document.getElementById('editArtist');
@@ -40,6 +41,10 @@ function setSaveStatus(message, type = '') {
   }
 }
 
+function updateDeleteButton() {
+  deleteSongButton.disabled = creatingSong || !latestState || latestState.songs.length <= 1;
+}
+
 function renderSongs(payload) {
   songSelect.innerHTML = '';
 
@@ -53,6 +58,8 @@ function renderSongs(payload) {
   if (!creatingSong) {
     songSelect.value = payload.song.id;
   }
+
+  updateDeleteButton();
 }
 
 function fillEditor(payload) {
@@ -65,6 +72,7 @@ function fillEditor(payload) {
   editorHeading.textContent = '곡 정보 및 가사';
   updateLineSummary();
   setSaveStatus('저장 대기');
+  updateDeleteButton();
 }
 
 function startCreatingSong() {
@@ -78,15 +86,18 @@ function startCreatingSong() {
   editorHeading.textContent = '새 곡 추가';
   updateLineSummary();
   setSaveStatus('새 곡 작성 중');
+  updateDeleteButton();
   editTitle.focus();
 }
 
 function renderEditor(payload) {
   if (creatingSong) {
+    updateDeleteButton();
     return;
   }
 
   if (editorDirty && editorSongId === payload.song.id) {
+    updateDeleteButton();
     return;
   }
 
@@ -130,6 +141,35 @@ songSelect.addEventListener('change', () => {
 
 newSongButton.addEventListener('click', () => {
   startCreatingSong();
+});
+
+deleteSongButton.addEventListener('click', () => {
+  if (!latestState || creatingSong || latestState.songs.length <= 1) {
+    return;
+  }
+
+  const title = latestState.song.title || '선택한 곡';
+  if (!confirm(`"${title}" 곡을 삭제할까요?`)) {
+    return;
+  }
+
+  deleteSongButton.disabled = true;
+  setSaveStatus('삭제 중');
+
+  socket.emit('control:deleteSong', {
+    songId: latestState.song.id
+  }, (response) => {
+    deleteSongButton.disabled = false;
+
+    if (!response?.ok) {
+      setSaveStatus(response?.message || '삭제 실패', 'error');
+      return;
+    }
+
+    editorDirty = false;
+    creatingSong = false;
+    setSaveStatus('삭제 완료', 'saved');
+  });
 });
 
 [editTitle, editArtist, editLyrics].forEach((element) => {

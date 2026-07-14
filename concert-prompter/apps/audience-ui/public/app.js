@@ -86,6 +86,14 @@ function render(payload) {
   applyDisplaySettings(payload.displaySettings);
   applyBackground(payload.displaySettings);
 
+  if (payload.blank) {
+    lyric.hidden = false;
+    pptSlide.hidden = true;
+    pptSlide.removeAttribute('src');
+    lyric.textContent = '';
+    return;
+  }
+
   if (payload.viewMode === 'ppt') {
     lyric.hidden = true;
     pptSlide.hidden = false;
@@ -96,11 +104,6 @@ function render(payload) {
   lyric.hidden = false;
   pptSlide.hidden = true;
   pptSlide.removeAttribute('src');
-
-  if (payload.blank) {
-    lyric.textContent = '';
-    return;
-  }
 
   lyric.textContent = payload.currentLines?.length ? payload.currentLines.join('\n') : '';
   fitLyricsToSongWidth();

@@ -39,6 +39,17 @@ function applyDisplaySettings(settings = {}) {
 function render(payload) {
   applyDisplaySettings(payload.displaySettings);
 
+  if (payload.blank) {
+    lyricSections.forEach((section) => {
+      section.hidden = false;
+    });
+    pptSlide.hidden = true;
+    pptSlide.removeAttribute('src');
+    currentLyric.textContent = '';
+    nextLyric.textContent = '';
+    return;
+  }
+
   if (payload.viewMode === 'ppt' && !payload.separateControlEnabled) {
     lyricSections.forEach((section) => {
       section.hidden = true;
@@ -53,12 +64,6 @@ function render(payload) {
   });
   pptSlide.hidden = true;
   pptSlide.removeAttribute('src');
-
-  if (payload.blank) {
-    currentLyric.textContent = '';
-    nextLyric.textContent = '';
-    return;
-  }
 
   currentLyric.textContent = payload.currentLines?.length ? payload.currentLines.join('\n') : '';
   nextLyric.textContent = payload.nextLines?.length ? payload.nextLines.join('\n') : '';

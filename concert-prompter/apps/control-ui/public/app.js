@@ -20,6 +20,8 @@ const nextButton = document.getElementById('nextButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
 const pptInput = document.getElementById('pptInput');
+const pptSelect = document.getElementById('pptSelect');
+const deletePptButton = document.getElementById('deletePptButton');
 const pptStatus = document.getElementById('pptStatus');
 const lyricsModeButton = document.getElementById('lyricsModeButton');
 const pptModeButton = document.getElementById('pptModeButton');
@@ -337,6 +339,30 @@ function renderPptControl(payload) {
   const ppt = payload.ppt || {};
   const hasPpt = Array.isArray(ppt.slides) && ppt.slides.length > 0;
   const isPptMode = payload.viewMode === 'ppt';
+  const pptLibrary = Array.isArray(ppt.library) ? ppt.library : [];
+
+  if (pptSelect) {
+    pptSelect.innerHTML = '';
+
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = '저장된 PPT 없음';
+    pptSelect.appendChild(emptyOption);
+
+    pptLibrary.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${item.filename || 'PPT'} (${item.totalSlides || 0})`;
+      pptSelect.appendChild(option);
+    });
+
+    pptSelect.value = ppt.id || '';
+    pptSelect.disabled = pptLibrary.length === 0;
+  }
+
+  if (deletePptButton) {
+    deletePptButton.disabled = !ppt.id || pptLibrary.length === 0;
+  }
 
   pptStatus.textContent = hasPpt
     ? `${ppt.filename || 'PPT'} ${Number(ppt.slideIndex || 0) + 1} / ${ppt.slides.length}`
@@ -467,6 +493,42 @@ pptModeButton.addEventListener('click', () => {
     mode: 'ppt'
   });
 });
+
+if (pptSelect) {
+  pptSelect.addEventListener('change', () => {
+    if (!pptSelect.value) {
+      return;
+    }
+
+    socket.emit('control:selectPpt', {
+      pptId: pptSelect.value
+    });
+  });
+}
+
+if (deletePptButton) {
+  deletePptButton.addEventListener('click', () => {
+    const pptId = latestState?.ppt?.id || pptSelect?.value || '';
+    const filename = latestState?.ppt?.filename || '선택한 PPT';
+
+    if (!pptId) {
+      return;
+    }
+
+    if (!confirm(`"${filename}" PPT를 삭제할까요?`)) {
+      return;
+    }
+
+    deletePptButton.disabled = true;
+    socket.emit('control:deletePpt', {
+      pptId
+    }, (response) => {
+      if (!response?.ok) {
+        alert(response?.message || 'PPT 삭제 실패');
+      }
+    });
+  });
+}
 
 prevPptButton.addEventListener('click', () => {
   socket.emit('control:prevPptSlide');

@@ -19,6 +19,7 @@ const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SONGS_PATH = process.env.SONGS_PATH || path.join(__dirname, 'data', 'songs.json');
+const PPTS_PATH = process.env.PPTS_PATH || path.join(__dirname, 'data', 'ppts.json');
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const CONTROL_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'control-ui', 'public');
 const AUDIENCE_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'audience-ui', 'public');
@@ -127,11 +128,13 @@ const DEFAULT_DISPLAY_SETTINGS = {
 };
 
 let songs = [];
+let ppts = [];
 let state = {
   songId: null,
   lineIndex: 0,
   viewMode: 'lyrics',
   ppt: {
+    id: '',
     filename: '',
     slideIndex: 0,
     slides: []
@@ -159,8 +162,103 @@ async function loadSongs() {
   }
 }
 
+async function loadPpts() {
+  try {
+    const raw = await fs.readFile(PPTS_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    ppts = Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+
+    ppts = [];
+    await savePpts();
+  }
+
+  const libraryChanged = await reconcilePptLibraryFromUploads();
+  if (libraryChanged) {
+    await savePpts();
+  }
+
+  if (ppts.length > 0 && !state.ppt.id) {
+    setPptById(ppts[0].id, {
+      switchToPptMode: false
+    });
+  }
+}
+
 async function saveSongs() {
   await fs.writeFile(SONGS_PATH, `${JSON.stringify(songs, null, 2)}\n`, 'utf-8');
+}
+
+async function savePpts() {
+  await fs.mkdir(path.dirname(PPTS_PATH), {
+    recursive: true
+  });
+  await fs.writeFile(PPTS_PATH, `${JSON.stringify(ppts, null, 2)}\n`, 'utf-8');
+}
+
+async function reconcilePptLibraryFromUploads() {
+  let uploadDirs = [];
+
+  try {
+    uploadDirs = await fs.readdir(PPT_UPLOADS_PATH, {
+      withFileTypes: true
+    });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return false;
+    }
+
+    throw error;
+  }
+
+  let changed = false;
+  const knownIds = new Set(ppts.map((ppt) => ppt.id));
+
+  for (const item of uploadDirs) {
+    if (!item.isDirectory() || knownIds.has(item.name)) {
+      continue;
+    }
+
+    const uploadDir = path.join(PPT_UPLOADS_PATH, item.name);
+    const slideDir = path.join(uploadDir, 'slides');
+    let slideFiles = [];
+
+    try {
+      slideFiles = (await fs.readdir(slideDir))
+        .filter((slideFile) => slideFile.toLowerCase().endsWith('.png'))
+        .sort((a, b) => a.localeCompare(b, undefined, {
+          numeric: true,
+          sensitivity: 'base'
+        }));
+    } catch {
+      continue;
+    }
+
+    if (slideFiles.length === 0) {
+      continue;
+    }
+
+    const sourceFile = (await fs.readdir(uploadDir))
+      .find((file) => /^source\.(ppt|pptx)$/i.test(file));
+    const stat = await fs.stat(uploadDir);
+
+    ppts.push({
+      id: item.name,
+      filename: sourceFile || 'presentation.pptx',
+      createdAt: stat.birthtime?.toISOString?.() || new Date().toISOString(),
+      slideIndex: 0,
+      slides: slideFiles.map((slideFile, index) => ({
+        index,
+        url: `/uploads/ppt/${item.name}/slides/${encodeURIComponent(slideFile)}`
+      }))
+    });
+    changed = true;
+  }
+
+  return changed;
 }
 
 function createSongId() {
@@ -202,6 +300,47 @@ function normalizeViewMode(mode) {
 function clampPptSlideIndex(index) {
   const maxIndex = Math.max(state.ppt.slides.length - 1, 0);
   return Math.min(Math.max(index, 0), maxIndex);
+}
+
+function getPptLibraryPayload() {
+  return ppts.map((ppt) => ({
+    id: ppt.id,
+    filename: ppt.filename,
+    totalSlides: Array.isArray(ppt.slides) ? ppt.slides.length : 0,
+    createdAt: ppt.createdAt
+  }));
+}
+
+function setPptById(pptId, options = {}) {
+  const ppt = ppts.find((item) => item.id === pptId);
+
+  if (!ppt) {
+    throw new Error(`Unknown pptId: ${pptId}`);
+  }
+
+  state.ppt = {
+    id: ppt.id,
+    filename: ppt.filename,
+    slideIndex: 0,
+    slides: Array.isArray(ppt.slides) ? ppt.slides : []
+  };
+
+  if (options.switchToPptMode !== false) {
+    state.viewMode = 'ppt';
+  }
+
+  touchState();
+}
+
+function getPptUploadDir(pptId) {
+  const uploadDir = path.resolve(PPT_UPLOADS_PATH, String(pptId || ''));
+  const uploadsRoot = path.resolve(PPT_UPLOADS_PATH);
+
+  if (uploadDir !== uploadsRoot && uploadDir.startsWith(`${uploadsRoot}${path.sep}`)) {
+    return uploadDir;
+  }
+
+  throw new Error('Invalid pptId.');
 }
 
 function getDataUrlParts(dataUrl) {
@@ -299,16 +438,26 @@ async function uploadPpt({ filename, fileBuffer }) {
     throw new Error('PPT 슬라이드 변환 결과가 없습니다.');
   }
 
-  state.ppt = {
+  const pptEntry = {
+    id: uploadId,
     filename: String(filename || 'presentation.pptx'),
+    createdAt: new Date().toISOString(),
     slideIndex: 0,
     slides: slideFiles.map((item, index) => ({
       index,
       url: `/uploads/ppt/${uploadId}/slides/${encodeURIComponent(item)}`
     }))
   };
+  ppts.push(pptEntry);
+  state.ppt = {
+    id: pptEntry.id,
+    filename: pptEntry.filename,
+    slideIndex: 0,
+    slides: pptEntry.slides
+  };
   state.viewMode = 'ppt';
   touchState();
+  await savePpts();
 }
 
 function getSingerMessageLines() {
@@ -550,7 +699,8 @@ function buildControlPayload() {
     viewMode: state.viewMode,
     ppt: {
       ...state.ppt,
-      currentSlide: getCurrentPptSlide()
+      currentSlide: getCurrentPptSlide(),
+      library: getPptLibraryPayload()
     },
     singerControl: {
       enabled: state.singerControl.enabled,
@@ -579,6 +729,7 @@ function buildAudiencePayload() {
     totalLines: lyrics.length,
     viewMode: state.viewMode,
     ppt: {
+      id: state.ppt.id,
       filename: state.ppt.filename,
       slideIndex: state.ppt.slideIndex,
       totalSlides: state.ppt.slides.length,
@@ -616,6 +767,7 @@ function buildSingerPayload() {
     totalLines: lyrics.length,
     viewMode: state.viewMode,
     ppt: {
+      id: state.ppt.id,
       filename: state.ppt.filename,
       slideIndex: state.ppt.slideIndex,
       totalSlides: state.ppt.slides.length,
@@ -763,6 +915,73 @@ async function createSong({ title, artist, lyrics }) {
   syncSingerLineIndex(nextSong);
   touchState();
   await saveSongs();
+}
+
+async function deleteSong(songId) {
+  if (songs.length <= 1) {
+    throw new Error('At least one song must remain.');
+  }
+
+  const songIndex = songs.findIndex((item) => item.id === songId);
+
+  if (songIndex === -1) {
+    throw new Error(`Unknown songId: ${songId}`);
+  }
+
+  const wasCurrentSong = state.songId === songId;
+  songs.splice(songIndex, 1);
+
+  if (wasCurrentSong) {
+    const nextSong = songs[Math.min(songIndex, songs.length - 1)];
+    state.songId = nextSong.id;
+    state.lineIndex = 0;
+    syncSingerLineIndex(nextSong);
+  }
+
+  touchState();
+  await saveSongs();
+}
+
+async function deletePpt(pptId) {
+  const pptIndex = ppts.findIndex((item) => item.id === pptId);
+
+  if (pptIndex === -1) {
+    throw new Error(`Unknown pptId: ${pptId}`);
+  }
+
+  const wasCurrentPpt = state.ppt.id === pptId;
+  ppts.splice(pptIndex, 1);
+
+  try {
+    await fs.rm(getPptUploadDir(pptId), {
+      recursive: true,
+      force: true
+    });
+  } catch {
+    // The index is the source of truth; missing files should not block cleanup.
+  }
+
+  if (wasCurrentPpt) {
+    if (ppts.length > 0) {
+      const nextPpt = ppts[Math.min(pptIndex, ppts.length - 1)];
+      setPptById(nextPpt.id, {
+        switchToPptMode: state.viewMode === 'ppt'
+      });
+    } else {
+      state.ppt = {
+        id: '',
+        filename: '',
+        slideIndex: 0,
+        slides: []
+      };
+      state.viewMode = 'lyrics';
+      touchState();
+    }
+  } else {
+    touchState();
+  }
+
+  await savePpts();
 }
 
 app.get('/health', (req, res) => {
@@ -936,6 +1155,40 @@ app.post('/api/control/ppt/upload', express.raw({
   }
 });
 
+app.post('/api/control/ppt/select', (req, res) => {
+  try {
+    setPptById(String(req.body.pptId || ''));
+    emitState();
+
+    res.json({
+      ok: true,
+      ppt: state.ppt
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
+app.post('/api/control/ppt/delete', async (req, res) => {
+  try {
+    await deletePpt(String(req.body.pptId || ''));
+    emitState();
+
+    res.json({
+      ok: true,
+      state
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
 app.post('/api/control/ppt/slide', (req, res) => {
   const slideIndex = Number(req.body.slideIndex);
 
@@ -977,6 +1230,23 @@ app.post('/api/control/song/update', async (req, res) => {
 app.post('/api/control/song/create', async (req, res) => {
   try {
     await createSong(req.body);
+    emitState();
+
+    res.json({
+      ok: true,
+      state
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
+app.post('/api/control/song/delete', async (req, res) => {
+  try {
+    await deleteSong(String(req.body.songId || ''));
     emitState();
 
     res.json({
@@ -1102,6 +1372,42 @@ io.on('connection', (socket) => {
     emitState();
   });
 
+  socket.on('control:selectPpt', ({ pptId }) => {
+    try {
+      setPptById(String(pptId || ''));
+      emitState();
+    } catch (error) {
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:deletePpt', async ({ pptId }, callback) => {
+    try {
+      await deletePpt(String(pptId || ''));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
   socket.on('control:updateDisplaySettings', (payload, callback) => {
     try {
       updateDisplaySettings(payload);
@@ -1186,9 +1492,35 @@ io.on('connection', (socket) => {
       });
     }
   });
+
+  socket.on('control:deleteSong', async ({ songId }, callback) => {
+    try {
+      await deleteSong(String(songId || ''));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
 });
 
 await loadSongs();
+await loadPpts();
 
 server.listen(PORT, () => {
   console.log(`[lyrics-service] running on http://localhost:${PORT}`);
