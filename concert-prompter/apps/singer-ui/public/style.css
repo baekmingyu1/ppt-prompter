@@ -74,6 +74,15 @@ body {
   white-space: pre-wrap;
 }
 
+.lyric-measure {
+  position: absolute;
+  left: 4vw;
+  right: 4vw;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 .ppt-slide {
   position: absolute;
   top: var(--singer-ppt-y);

@@ -460,7 +460,7 @@ function renderProgramOverview(payload) {
       text.className = 'overview-lyric-text';
       text.textContent = entry.type === 'note'
         ? `[메모] ${entry.title}`
-        : `[${entry.title}]\n${entry.lines.map((line) => line || '(빈 줄)').join('\n')}`;
+        : entry.lines.map((line) => line || '(빈 줄)').join('\n');
       button.append(number, text);
     }
 

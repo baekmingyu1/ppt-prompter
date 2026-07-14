@@ -912,7 +912,8 @@ function buildSingerPayload() {
     current: currentLines[0] || '',
     next: nextLines[0] || '',
     currentLines,
-    nextLines
+    nextLines,
+    lyrics
   };
 }
 
