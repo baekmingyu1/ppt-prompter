@@ -16,6 +16,7 @@ const presenterNextFrame = document.getElementById('presenterNextFrame');
 const presenterNotes = document.getElementById('presenterNotes');
 const presenterPrevButton = document.getElementById('presenterPrevButton');
 const presenterNextButton = document.getElementById('presenterNextButton');
+const presenterProgramSelect = document.getElementById('presenterProgramSelect');
 
 const startedAt = Date.now();
 let latestState = null;
@@ -46,6 +47,43 @@ function updateTime() {
 function syncViewMode(mode) {
   socket.emit('control:setViewMode', {
     mode
+  });
+}
+
+function getProgramTypeLabel(type) {
+  if (type === 'song') return '곡';
+  if (type === 'ppt') return 'PPT';
+  return '메모';
+}
+
+function renderProgramSelect(payload) {
+  const items = payload.program?.items || [];
+  const currentItemId = payload.program?.currentItemId || '';
+
+  presenterProgramSelect.innerHTML = '';
+
+  const emptyOption = document.createElement('option');
+  emptyOption.value = '';
+  emptyOption.textContent = items.length ? '순서 선택' : '순서표 없음';
+  presenterProgramSelect.appendChild(emptyOption);
+
+  items.forEach((item, index) => {
+    const option = document.createElement('option');
+    option.value = item.id;
+    option.disabled = Boolean(item.missing);
+    option.textContent = `${index + 1}. ${getProgramTypeLabel(item.type)} - ${item.title}${item.missing ? ' (삭제됨)' : ''}`;
+    presenterProgramSelect.appendChild(option);
+  });
+
+  presenterProgramSelect.disabled = items.length === 0;
+  presenterProgramSelect.value = currentItemId || '';
+}
+
+function applyProgramItem(programItemId) {
+  if (!programItemId) return;
+
+  socket.emit('control:applyProgramItem', {
+    programItemId
   });
 }
 
@@ -131,6 +169,7 @@ function renderLyricsPresenter(payload) {
 
 function render(payload) {
   latestState = payload;
+  renderProgramSelect(payload);
   renderModeState(payload);
 
   if (payload.viewMode === 'ppt' && payload.ppt?.slides?.length) {
@@ -186,7 +225,15 @@ presenterPptModeButton.addEventListener('click', () => {
 presenterPrevButton.addEventListener('click', movePrevious);
 presenterNextButton.addEventListener('click', moveNext);
 
+presenterProgramSelect.addEventListener('change', () => {
+  applyProgramItem(presenterProgramSelect.value);
+});
+
 document.addEventListener('keydown', (event) => {
+  if (event.target instanceof HTMLSelectElement) {
+    return;
+  }
+
   if (event.key === 'ArrowLeft') {
     event.preventDefault();
     movePrevious();

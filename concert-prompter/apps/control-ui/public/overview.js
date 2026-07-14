@@ -12,6 +12,7 @@ const overviewJumpLabel = document.getElementById('overviewJumpLabel');
 const overviewJumpDisplay = document.getElementById('overviewJumpDisplay');
 const overviewLyricsModeButton = document.getElementById('overviewLyricsModeButton');
 const overviewPptModeButton = document.getElementById('overviewPptModeButton');
+const overviewProgramSelect = document.getElementById('overviewProgramSelect');
 
 let latestState = null;
 let overviewMode = 'lyrics';
@@ -46,6 +47,43 @@ function updateJumpDisplay() {
 function clearJumpBuffer() {
   jumpBuffer = '';
   updateJumpDisplay();
+}
+
+function getProgramTypeLabel(type) {
+  if (type === 'song') return '곡';
+  if (type === 'ppt') return 'PPT';
+  return '메모';
+}
+
+function renderProgramSelect(payload) {
+  const items = payload.program?.items || [];
+  const currentItemId = payload.program?.currentItemId || '';
+
+  overviewProgramSelect.innerHTML = '';
+
+  const emptyOption = document.createElement('option');
+  emptyOption.value = '';
+  emptyOption.textContent = items.length ? '순서 선택' : '순서표 없음';
+  overviewProgramSelect.appendChild(emptyOption);
+
+  items.forEach((item, index) => {
+    const option = document.createElement('option');
+    option.value = item.id;
+    option.disabled = Boolean(item.missing);
+    option.textContent = `${index + 1}. ${getProgramTypeLabel(item.type)} - ${item.title}${item.missing ? ' (삭제됨)' : ''}`;
+    overviewProgramSelect.appendChild(option);
+  });
+
+  overviewProgramSelect.disabled = items.length === 0;
+  overviewProgramSelect.value = currentItemId || '';
+}
+
+function applyProgramItem(programItemId) {
+  if (!programItemId) return;
+
+  socket.emit('control:applyProgramItem', {
+    programItemId
+  });
 }
 
 async function postJson(path, payload) {
@@ -355,6 +393,7 @@ socket.on('connect', () => {
 
 socket.on('state', (payload) => {
   latestState = payload;
+  renderProgramSelect(payload);
   overviewMode = payload.viewMode === 'ppt' && Array.isArray(payload.ppt?.slides) && payload.ppt.slides.length > 0
     ? 'ppt'
     : 'lyrics';
@@ -374,6 +413,10 @@ overviewPptModeButton.addEventListener('click', () => {
   if (latestState?.ppt?.slides?.length) {
     syncViewMode('ppt');
   }
+});
+
+overviewProgramSelect.addEventListener('change', () => {
+  applyProgramItem(overviewProgramSelect.value);
 });
 
 document.addEventListener('keydown', (event) => {
