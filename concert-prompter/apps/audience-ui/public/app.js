@@ -24,12 +24,14 @@ function applyDisplaySettings(settings = {}) {
   const fontWeight = Number(settings.fontWeight || 800);
   const fontColor = settings.fontColor || '#ffffff';
   const verticalPositionPercent = Number(settings.verticalPositionPercent || 50);
+  const pptVerticalPositionPercent = Number(settings.pptVerticalPositionPercent || 50);
 
   audienceFontSizeVw = fontSizeVw;
   lyric.style.fontSize = `${audienceFontSizeVw}vw`;
   lyric.style.fontWeight = String(fontWeight);
   lyric.style.color = fontColor;
   lyric.style.top = `${verticalPositionPercent}%`;
+  pptSlide.style.top = `${pptVerticalPositionPercent}%`;
 }
 
 function getLongestLine(lines = []) {

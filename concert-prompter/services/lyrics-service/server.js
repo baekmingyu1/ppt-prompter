@@ -111,13 +111,15 @@ const DEFAULT_DISPLAY_SETTINGS = {
     fontWeight: 800,
     fontColor: '#ffffff',
     backgroundImage: '',
-    verticalPositionPercent: 50
+    verticalPositionPercent: 50,
+    pptVerticalPositionPercent: 50
   },
   singer: {
     fontSizeVw: 6,
     fontWeight: 900,
     fontColor: '#ffffff',
-    verticalPositionPercent: 50
+    verticalPositionPercent: 50,
+    pptVerticalPositionPercent: 50
   },
   control: {
     currentFontSizePx: 20,
@@ -483,6 +485,7 @@ function normalizeRoleSettings(settings = {}, role) {
   const fontWeight = Number(settings.fontWeight);
   const fontColor = String(settings.fontColor || '').trim();
   const verticalPositionPercent = Number(settings.verticalPositionPercent);
+  const pptVerticalPositionPercent = Number(settings.pptVerticalPositionPercent ?? 50);
 
   if (!Number.isFinite(fontSizeVw) || fontSizeVw < 3 || fontSizeVw > 12) {
     throw new Error('폰트 크기는 3부터 12 사이여야 합니다.');
@@ -500,11 +503,16 @@ function normalizeRoleSettings(settings = {}, role) {
     throw new Error('vertical position must be between 10 and 90.');
   }
 
+  if (!Number.isFinite(pptVerticalPositionPercent) || pptVerticalPositionPercent < 10 || pptVerticalPositionPercent > 90) {
+    throw new Error('PPT vertical position must be between 10 and 90.');
+  }
+
   const normalized = {
     fontSizeVw,
     fontWeight,
     fontColor,
-    verticalPositionPercent
+    verticalPositionPercent,
+    pptVerticalPositionPercent
   };
 
   if (role === 'audience') {

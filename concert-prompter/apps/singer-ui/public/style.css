@@ -12,9 +12,11 @@ body {
   background: #000;
   color: #fff;
   --singer-lyric-y: 50%;
+  --singer-ppt-y: 50%;
 }
 
 .screen {
+  position: relative;
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -73,9 +75,12 @@ body {
 }
 
 .ppt-slide {
-  grid-row: 1 / -1;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: var(--singer-ppt-y);
+  left: 50%;
+  width: 100vw;
+  height: 100vh;
+  transform: translate(-50%, -50%);
   object-fit: contain;
   background: #000;
 }

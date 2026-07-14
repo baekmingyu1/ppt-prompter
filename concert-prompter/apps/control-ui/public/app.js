@@ -43,6 +43,8 @@ const fontWeightAudienceValue = document.getElementById('fontWeightAudienceValue
 const fontColorAudienceInput = document.getElementById('fontColorAudienceInput');
 const verticalPositionAudienceInput = document.getElementById('verticalPositionAudienceInput');
 const verticalPositionAudienceValue = document.getElementById('verticalPositionAudienceValue');
+const pptVerticalPositionAudienceInput = document.getElementById('pptVerticalPositionAudienceInput');
+const pptVerticalPositionAudienceValue = document.getElementById('pptVerticalPositionAudienceValue');
 const audienceBackgroundInput = document.getElementById('audienceBackgroundInput');
 const audienceBackgroundStatus = document.getElementById('audienceBackgroundStatus');
 const audienceBackgroundClearButton = document.getElementById('audienceBackgroundClearButton');
@@ -55,6 +57,8 @@ const fontWeightSingerValue = document.getElementById('fontWeightSingerValue');
 const fontColorSingerInput = document.getElementById('fontColorSingerInput');
 const verticalPositionSingerInput = document.getElementById('verticalPositionSingerInput');
 const verticalPositionSingerValue = document.getElementById('verticalPositionSingerValue');
+const pptVerticalPositionSingerInput = document.getElementById('pptVerticalPositionSingerInput');
+const pptVerticalPositionSingerValue = document.getElementById('pptVerticalPositionSingerValue');
 const controlCurrentFontSizeInput = document.getElementById('controlCurrentFontSizeInput');
 const controlCurrentFontSizeValue = document.getElementById('controlCurrentFontSizeValue');
 const controlNextFontSizeInput = document.getElementById('controlNextFontSizeInput');
@@ -216,6 +220,8 @@ function renderDisplaySettings(payload) {
   fontColorAudienceInput.value = audience.fontColor || '#ffffff';
   verticalPositionAudienceInput.value = audience.verticalPositionPercent || 50;
   verticalPositionAudienceValue.textContent = `${audience.verticalPositionPercent || 50}%`;
+  pptVerticalPositionAudienceInput.value = audience.pptVerticalPositionPercent || 50;
+  pptVerticalPositionAudienceValue.textContent = `${audience.pptVerticalPositionPercent || 50}%`;
   audienceBackgroundStatus.textContent = audience.backgroundImage ? '현재 배경 적용됨' : '현재 배경 없음';
   audienceBackgroundClearButton.disabled = !audience.backgroundImage;
 
@@ -226,6 +232,8 @@ function renderDisplaySettings(payload) {
   fontColorSingerInput.value = singer.fontColor || '#ffffff';
   verticalPositionSingerInput.value = singer.verticalPositionPercent || 50;
   verticalPositionSingerValue.textContent = `${singer.verticalPositionPercent || 50}%`;
+  pptVerticalPositionSingerInput.value = singer.pptVerticalPositionPercent || 50;
+  pptVerticalPositionSingerValue.textContent = `${singer.pptVerticalPositionPercent || 50}%`;
 
   controlCurrentFontSizeInput.value = controlDisplaySettings.currentFontSizePx;
   controlCurrentFontSizeValue.textContent = `${controlDisplaySettings.currentFontSizePx}px`;
@@ -577,7 +585,7 @@ function sendDisplaySettings(settings, target = null) {
   });
 }
 
-[fontSizeAudienceInput, fontWeightAudienceInput, fontColorAudienceInput, verticalPositionAudienceInput].forEach((el) => {
+[fontSizeAudienceInput, fontWeightAudienceInput, fontColorAudienceInput, verticalPositionAudienceInput, pptVerticalPositionAudienceInput].forEach((el) => {
   el.addEventListener('input', () => {
     if (settingsRenderLocked) return;
 
@@ -585,17 +593,19 @@ function sendDisplaySettings(settings, target = null) {
       fontSizeVw: Number(fontSizeAudienceInput.value),
       fontWeight: Number(fontWeightAudienceInput.value),
       fontColor: fontColorAudienceInput.value,
-      verticalPositionPercent: Number(verticalPositionAudienceInput.value)
+      verticalPositionPercent: Number(verticalPositionAudienceInput.value),
+      pptVerticalPositionPercent: Number(pptVerticalPositionAudienceInput.value)
     };
 
     fontSizeAudienceValue.textContent = `${payload.fontSizeVw}vw`;
     fontWeightAudienceValue.textContent = String(payload.fontWeight);
     verticalPositionAudienceValue.textContent = `${payload.verticalPositionPercent}%`;
+    pptVerticalPositionAudienceValue.textContent = `${payload.pptVerticalPositionPercent}%`;
     sendDisplaySettings(payload, 'audience');
   });
 });
 
-[fontSizeSingerInput, fontWeightSingerInput, fontColorSingerInput, verticalPositionSingerInput].forEach((el) => {
+[fontSizeSingerInput, fontWeightSingerInput, fontColorSingerInput, verticalPositionSingerInput, pptVerticalPositionSingerInput].forEach((el) => {
   el.addEventListener('input', () => {
     if (settingsRenderLocked) return;
 
@@ -603,12 +613,14 @@ function sendDisplaySettings(settings, target = null) {
       fontSizeVw: Number(fontSizeSingerInput.value),
       fontWeight: Number(fontWeightSingerInput.value),
       fontColor: fontColorSingerInput.value,
-      verticalPositionPercent: Number(verticalPositionSingerInput.value)
+      verticalPositionPercent: Number(verticalPositionSingerInput.value),
+      pptVerticalPositionPercent: Number(pptVerticalPositionSingerInput.value)
     };
 
     fontSizeSingerValue.textContent = `${payload.fontSizeVw}vw`;
     fontWeightSingerValue.textContent = String(payload.fontWeight);
     verticalPositionSingerValue.textContent = `${payload.verticalPositionPercent}%`;
+    pptVerticalPositionSingerValue.textContent = `${payload.pptVerticalPositionPercent}%`;
     sendDisplaySettings(payload, 'singer');
   });
 });

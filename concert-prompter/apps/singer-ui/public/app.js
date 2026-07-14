@@ -34,6 +34,7 @@ function applyDisplaySettings(settings = {}) {
   }
 
   document.documentElement.style.setProperty('--singer-lyric-y', `${singerSettings.verticalPositionPercent || 50}%`);
+  document.documentElement.style.setProperty('--singer-ppt-y', `${singerSettings.pptVerticalPositionPercent || 50}%`);
 }
 
 function render(payload) {
