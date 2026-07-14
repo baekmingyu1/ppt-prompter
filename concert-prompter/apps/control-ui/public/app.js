@@ -88,6 +88,9 @@ const moveProgramItemUpButton = document.getElementById('moveProgramItemUpButton
 const moveProgramItemDownButton = document.getElementById('moveProgramItemDownButton');
 const deleteProgramItemButton = document.getElementById('deleteProgramItemButton');
 const programList = document.getElementById('programList');
+const backupStatus = document.getElementById('backupStatus');
+const exportBackupButton = document.getElementById('exportBackupButton');
+const importBackupInput = document.getElementById('importBackupInput');
 
 function getScreenUrl(configuredUrl, localPort, servicePath) {
   if (configuredUrl && !configuredUrl.startsWith('/')) {
@@ -533,6 +536,79 @@ socket.on('state', (payload) => {
 
 socket.on('errorMessage', (payload) => {
   alert(payload.message || '오류가 발생했습니다.');
+});
+
+function setBackupStatus(message, type = '') {
+  backupStatus.textContent = message;
+  backupStatus.classList.remove('saved', 'error');
+  if (type) {
+    backupStatus.classList.add(type);
+  }
+}
+
+async function exportBackup() {
+  try {
+    setBackupStatus('저장 중');
+    const response = await fetch(`${LYRICS_SERVICE_URL}/api/backup`);
+
+    if (!response.ok) {
+      throw new Error('백업 파일을 만들지 못했습니다.');
+    }
+
+    const backup = await response.json();
+    const blob = new Blob([`${JSON.stringify(backup, null, 2)}\n`], {
+      type: 'application/json'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `concert-prompter-backup-${date}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setBackupStatus('저장 완료', 'saved');
+  } catch (error) {
+    setBackupStatus('저장 실패', 'error');
+    alert(error.message || '백업 저장 중 오류가 발생했습니다.');
+  }
+}
+
+async function restoreBackupFile(file) {
+  if (!file) return;
+  if (!confirm('현재 곡 목록, PPT 목록, 순서표, 화면 설정을 백업 파일로 덮어쓸까요?')) {
+    importBackupInput.value = '';
+    return;
+  }
+
+  try {
+    setBackupStatus('복원 중');
+    const backup = JSON.parse(await file.text());
+    const response = await fetch(`${LYRICS_SERVICE_URL}/api/backup/restore`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(backup)
+    });
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message || '백업 복원에 실패했습니다.');
+    }
+
+    setBackupStatus('복원 완료', 'saved');
+  } catch (error) {
+    setBackupStatus('복원 실패', 'error');
+    alert(error.message || '백업 복원 중 오류가 발생했습니다.');
+  } finally {
+    importBackupInput.value = '';
+  }
+}
+
+exportBackupButton.addEventListener('click', exportBackup);
+
+importBackupInput.addEventListener('change', () => {
+  restoreBackupFile(importBackupInput.files?.[0]);
 });
 
 function addProgramItem(payload) {

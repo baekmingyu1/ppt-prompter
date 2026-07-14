@@ -779,6 +779,30 @@ textarea {
   white-space: nowrap;
 }
 
+.backup-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #303030;
+}
+
+.backup-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.backup-import-label {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.backup-import-label input {
+  font-size: 14px;
+}
+
 .song-toolbar {
   margin-bottom: 8px;
 }

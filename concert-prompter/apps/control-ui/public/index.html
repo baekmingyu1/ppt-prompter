@@ -302,6 +302,21 @@
           <ol id="programList" class="program-list"></ol>
         </section>
 
+        <section class="backup-panel">
+          <div class="section-header">
+            <h2>백업/복원</h2>
+            <span id="backupStatus" class="save-status">대기</span>
+          </div>
+          <div class="backup-actions">
+            <button id="exportBackupButton" class="small-button" type="button">백업 저장</button>
+            <label class="backup-import-label">
+              백업 복원
+              <input id="importBackupInput" type="file" accept="application/json,.json" />
+            </label>
+          </div>
+          <div class="hint">곡, PPT 목록, 순서표, 화면 설정을 JSON으로 저장합니다. PPT 실제 파일은 기존 업로드 폴더를 사용합니다.</div>
+        </section>
+
         <div class="song-toolbar">
           <label for="songSelect">곡 선택</label>
           <div class="song-nav">

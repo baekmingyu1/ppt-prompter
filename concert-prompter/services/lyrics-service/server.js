@@ -1176,6 +1176,71 @@ function applyProgramItem(programItemId) {
   touchState();
 }
 
+function buildBackupPayload() {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    songs,
+    ppts,
+    programItems,
+    displaySettings: state.displaySettings
+  };
+}
+
+async function restoreBackup(payload) {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid backup payload.');
+  }
+
+  const nextSongs = Array.isArray(payload.songs) ? payload.songs : [];
+  if (nextSongs.length === 0) {
+    throw new Error('백업에 곡 목록이 없습니다.');
+  }
+
+  songs = nextSongs.map((song, index) => ({
+    id: String(song.id || `song-${String(index + 1).padStart(3, '0')}`),
+    title: String(song.title || '').trim() || `곡 ${index + 1}`,
+    artist: String(song.artist || '').trim(),
+    lyrics: Array.isArray(song.lyrics)
+      ? song.lyrics.map((line) => String(line).trim()).filter(Boolean)
+      : ['가사를 입력해 주세요']
+  }));
+  ppts = Array.isArray(payload.ppts) ? payload.ppts : [];
+  programItems = Array.isArray(payload.programItems)
+    ? payload.programItems.map(normalizeProgramItem).filter(Boolean)
+    : [];
+  state.displaySettings = normalizeDisplaySettings(payload.displaySettings || state.displaySettings);
+  state.songId = songs[0].id;
+  state.lineIndex = 0;
+  state.programItemId = '';
+  state.emergencyMessage = '';
+  state.blank = false;
+  state.viewMode = 'lyrics';
+  state.singerControl = {
+    enabled: false,
+    lineIndex: 0,
+    message: ''
+  };
+
+  if (ppts.length > 0) {
+    setPptById(ppts[0].id, {
+      switchToPptMode: false
+    });
+  } else {
+    state.ppt = {
+      id: '',
+      filename: '',
+      slideIndex: 0,
+      slides: []
+    };
+  }
+
+  await saveSongs();
+  await savePpts();
+  await saveProgram();
+  touchState();
+}
+
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
@@ -1200,6 +1265,27 @@ app.get('/api/state/audience', (req, res) => {
 
 app.get('/api/state/singer', (req, res) => {
   res.json(buildSingerPayload());
+});
+
+app.get('/api/backup', (req, res) => {
+  res.json(buildBackupPayload());
+});
+
+app.post('/api/backup/restore', async (req, res) => {
+  try {
+    await restoreBackup(req.body);
+    emitState();
+
+    res.json({
+      ok: true,
+      state
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
 });
 
 app.post('/api/control/song', (req, res) => {
