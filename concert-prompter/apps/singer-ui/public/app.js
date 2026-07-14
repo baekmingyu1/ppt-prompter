@@ -54,42 +54,40 @@ function getLongestLine(lines = []) {
   }, '');
 }
 
-function fitLyricElementToWidth(element, measure, lines, baseFontSizeVw, minFontSizeVw) {
+function getFittedFontSizeForWidth(measure, lines, baseFontSizeVw, minFontSizeVw) {
   const longestLine = getLongestLine(lines);
 
   if (!longestLine) {
-    element.style.fontSize = `${baseFontSizeVw.toFixed(1)}vw`;
-    return;
+    return baseFontSizeVw;
   }
 
   let nextFontSize = baseFontSizeVw;
   measure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
-  measure.style.fontWeight = element.style.fontWeight;
+  measure.style.fontWeight = currentLyric.style.fontWeight;
   measure.textContent = longestLine;
-  element.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
 
-  while (
-    (
-      measure.scrollWidth > measure.clientWidth
-      || element.scrollHeight > element.clientHeight
-    )
-    && nextFontSize > minFontSizeVw
-  ) {
+  while (measure.scrollWidth > measure.clientWidth && nextFontSize > minFontSizeVw) {
     nextFontSize = Math.max(nextFontSize - 0.1, minFontSizeVw);
     measure.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
-    element.style.fontSize = `${nextFontSize.toFixed(1)}vw`;
   }
+
+  return nextFontSize;
 }
 
 function fitSingerLyricsToWidth() {
   requestAnimationFrame(() => {
     if (currentLyric.hidden) return;
 
-    const currentBase = singerFontSizeVw;
-    const nextBase = singerFontSizeVw;
+    const songLines = latestPayload?.lyrics?.length
+      ? latestPayload.lyrics
+      : [
+        ...(latestPayload?.currentLines || []),
+        ...(latestPayload?.nextLines || [])
+      ];
+    const fittedFontSize = getFittedFontSizeForWidth(currentLyricMeasure, songLines, singerFontSizeVw, 2.5);
 
-    fitLyricElementToWidth(currentLyric, currentLyricMeasure, latestPayload?.currentLines || [], currentBase, 2.5);
-    fitLyricElementToWidth(nextLyric, nextLyricMeasure, latestPayload?.nextLines || [], nextBase, 2.5);
+    currentLyric.style.fontSize = `${fittedFontSize.toFixed(1)}vw`;
+    nextLyric.style.fontSize = `${fittedFontSize.toFixed(1)}vw`;
   });
 }
 
