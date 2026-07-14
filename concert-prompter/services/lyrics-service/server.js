@@ -938,6 +938,7 @@ function setSong(songId, options = {}) {
   }
   state.songId = songId;
   state.lineIndex = 0;
+  state.viewMode = 'lyrics';
   syncSingerLineIndex(getCurrentSong());
   touchState();
 }
