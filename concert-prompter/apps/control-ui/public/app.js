@@ -311,6 +311,18 @@ function renderProgram(payload) {
   nextProgramItemButton.onclick = () => {
     moveProgramStep(1);
   };
+
+  const focusedProgramItem = programList.querySelector('.program-item-button.active')
+    || programList.querySelector('.program-item-button.selected');
+
+  if (focusedProgramItem) {
+    requestAnimationFrame(() => {
+      focusedProgramItem.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth'
+      });
+    });
+  }
 }
 
 function renderLyricsList(payload) {
