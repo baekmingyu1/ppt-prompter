@@ -22,10 +22,10 @@ body {
 }
 
 .page {
-  width: min(96vw, 1900px);
+  width: min(98vw, 2200px);
   max-width: none;
   margin: 0 auto;
-  padding: 24px;
+  padding: 24px 12px;
 }
 
 .overview-page {
