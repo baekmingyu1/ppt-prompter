@@ -21,6 +21,10 @@
           <a id="audienceLink" class="button-link" href="/audience/" target="_blank">관객용</a>
           <a id="singerLink" class="button-link" href="/singer/" target="_blank">가사용</a>
         </div>
+        <div class="screen-statuses">
+          <span id="audienceScreenStatus" class="screen-status">관객 0</span>
+          <span id="singerScreenStatus" class="screen-status">가수 0</span>
+        </div>
         <div id="connectionStatus" class="status">연결 대기</div>
       </div>
     </header>
@@ -61,30 +65,42 @@
             <button id="singerNextButton" type="button" class="primary">문구 적용</button>
           </div>
         </section>
+
+        <section class="panel emergency-panel">
+          <div class="section-header">
+            <h2>긴급 문구</h2>
+            <span id="emergencyStatus" class="save-status">꺼짐</span>
+          </div>
+          <div class="emergency-presets">
+            <button class="small-button emergency-preset-button" type="button" data-message="잠시만 기다려 주세요">잠시만</button>
+            <button class="small-button emergency-preset-button" type="button" data-message="기도 중입니다">기도 중</button>
+            <button class="small-button emergency-preset-button" type="button" data-message="광고 준비 중입니다">광고 준비</button>
+            <button class="small-button emergency-preset-button" type="button" data-message="곧 시작합니다">곧 시작</button>
+          </div>
+          <div class="emergency-custom">
+            <input id="emergencyMessageInput" type="text" placeholder="직접 입력할 긴급 문구" />
+            <button id="sendEmergencyMessageButton" class="small-button primary" type="button">띄우기</button>
+            <button id="clearEmergencyMessageButton" class="small-button" type="button">해제</button>
+          </div>
+        </section>
       </div>
 
       <div class="control-column">
-        <section class="now-panel">
-          <div class="meta">
-            <span id="songTitle">-</span>
-            <span id="lineCounter">0 / 0</span>
+        <section class="panel audience-preview-panel">
+          <div class="section-header">
+            <h2>관객 실제 화면</h2>
+            <span id="audiencePreviewStatus" class="save-status">대기</span>
           </div>
-
-          <div class="current-box">
-            <div class="label">현재 가사</div>
-            <div id="currentLyric" class="current">-</div>
-            <img id="controlPptPreview" class="control-ppt-preview" alt="PPT preview" hidden />
-          </div>
-
-          <div class="next-box">
-            <div class="label">다음 가사</div>
-            <div id="nextLyric" class="next">-</div>
+          <div id="audienceLivePreview" class="audience-live-preview">
+            <div id="audiencePreviewLyric" class="audience-preview-lyric">-</div>
+            <img id="audiencePreviewPpt" class="audience-preview-ppt" alt="Audience PPT preview" hidden />
           </div>
         </section>
 
         <section class="buttons">
           <button id="prevButton" type="button">이전 줄</button>
           <button id="nextButton" type="button" class="primary">다음 줄</button>
+          <button id="undoButton" type="button">되돌리기</button>
           <button id="blankOnButton" type="button" class="danger">빈 화면 ON</button>
           <button id="blankOffButton" type="button">빈 화면 OFF</button>
         </section>
@@ -272,6 +288,52 @@
         <div class="lyrics-scroll">
           <ol id="lyricsList" class="lyrics-list"></ol>
         </div>
+      </aside>
+
+      <aside class="workflow-panel panel">
+        <section class="program-panel">
+          <div class="section-header">
+            <h2>예배 순서표</h2>
+            <span id="programStatus" class="save-status">0개</span>
+          </div>
+
+          <div class="program-actions">
+            <button id="addCurrentSongProgramButton" class="small-button" type="button">현재 곡 추가</button>
+            <button id="addCurrentPptProgramButton" class="small-button" type="button">현재 PPT 추가</button>
+          </div>
+
+          <div class="program-note-form">
+            <input id="programNoteInput" type="text" placeholder="예: 대표기도, 광고, 말씀" />
+            <button id="addProgramNoteButton" class="small-button" type="button">메모 추가</button>
+          </div>
+
+          <div class="program-toolbar">
+            <button id="applyProgramItemButton" class="small-button primary" type="button">적용</button>
+            <button id="deleteProgramItemButton" class="small-button danger" type="button">삭제</button>
+          </div>
+
+          <div class="program-sequence-actions">
+            <button id="prevProgramItemButton" class="small-button" type="button">이전 순서</button>
+            <button id="nextProgramItemButton" class="small-button primary" type="button">다음 순서</button>
+          </div>
+
+          <ol id="programList" class="program-list"></ol>
+        </section>
+
+        <section class="backup-panel">
+          <div class="section-header">
+            <h2>백업/복원</h2>
+            <span id="backupStatus" class="save-status">대기</span>
+          </div>
+          <div class="backup-actions">
+            <button id="exportBackupButton" class="small-button" type="button">백업 저장</button>
+            <label class="backup-import-label">
+              백업 복원
+              <input id="importBackupInput" type="file" accept="application/json,.json" />
+            </label>
+          </div>
+          <div class="hint">곡, PPT 목록, 순서표, 화면 설정을 JSON으로 저장합니다. PPT 실제 파일은 기존 업로드 폴더를 사용합니다.</div>
+        </section>
       </aside>
     </div>
   </main>

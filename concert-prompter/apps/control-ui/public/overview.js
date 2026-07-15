@@ -12,11 +12,13 @@ const overviewJumpLabel = document.getElementById('overviewJumpLabel');
 const overviewJumpDisplay = document.getElementById('overviewJumpDisplay');
 const overviewLyricsModeButton = document.getElementById('overviewLyricsModeButton');
 const overviewPptModeButton = document.getElementById('overviewPptModeButton');
+const overviewProgramSelect = document.getElementById('overviewProgramSelect');
 
 let latestState = null;
 let overviewMode = 'lyrics';
 let jumpBuffer = '';
 let jumpEnabled = false;
+let programOverviewEntries = [];
 
 function getAssetUrl(url) {
   if (!url || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
@@ -46,6 +48,54 @@ function updateJumpDisplay() {
 function clearJumpBuffer() {
   jumpBuffer = '';
   updateJumpDisplay();
+}
+
+function getProgramTypeLabel(type) {
+  if (type === 'song') return '곡';
+  if (type === 'ppt') return 'PPT';
+  return '메모';
+}
+
+function renderProgramSelect(payload) {
+  const items = payload.program?.items || [];
+  const currentItemId = payload.program?.currentItemId || '';
+
+  overviewProgramSelect.innerHTML = '';
+
+  const emptyOption = document.createElement('option');
+  emptyOption.value = '';
+  emptyOption.textContent = items.length ? '순서 선택' : '순서표 없음';
+  overviewProgramSelect.appendChild(emptyOption);
+
+  items.forEach((item, index) => {
+    const option = document.createElement('option');
+    option.value = item.id;
+    option.disabled = Boolean(item.missing);
+    option.textContent = `${index + 1}. ${getProgramTypeLabel(item.type)} - ${item.title}${item.missing ? ' (삭제됨)' : ''}`;
+    overviewProgramSelect.appendChild(option);
+  });
+
+  overviewProgramSelect.disabled = items.length === 0;
+  overviewProgramSelect.value = currentItemId || '';
+}
+
+function applyProgramItem(programItemId) {
+  if (!programItemId) return;
+
+  socket.emit('control:applyProgramItem', {
+    programItemId
+  });
+}
+
+function applyProgramEntry(entry) {
+  if (!entry?.programItemId) return;
+
+  socket.emit('control:applyProgramItem', {
+    programItemId: entry.programItemId,
+    lineIndex: entry.lineIndex,
+    slideIndex: entry.slideIndex
+  });
+  clearJumpBuffer();
 }
 
 async function postJson(path, payload) {
@@ -120,6 +170,17 @@ async function goToSlide(slideIndex) {
 
 async function moveOverviewSelection(delta) {
   if (!latestState) {
+    return;
+  }
+
+  if (programOverviewEntries.length) {
+    const currentIndex = programOverviewEntries.findIndex((entry) => entry.active);
+    const fallbackIndex = currentIndex === -1 ? 0 : currentIndex;
+    const nextIndex = Math.min(Math.max(fallbackIndex + delta, 0), programOverviewEntries.length - 1);
+
+    if (nextIndex !== currentIndex) {
+      applyProgramEntry(programOverviewEntries[nextIndex]);
+    }
     return;
   }
 
@@ -297,7 +358,135 @@ function renderPptOverview(payload) {
   });
 }
 
+function buildProgramOverviewEntries(payload) {
+  const items = payload.program?.items || [];
+  const lineCount = Number(payload.state?.displaySettings?.lineCount || 1);
+  const currentItemId = payload.program?.currentItemId || '';
+  const currentLineIndex = Number(payload.state?.lineIndex || 0);
+  const currentSlideIndex = Number(payload.ppt?.slideIndex || 0);
+  const entries = [];
+
+  items.forEach((item, itemIndex) => {
+    if (item.missing) return;
+
+    if (item.type === 'song') {
+      const lyrics = Array.isArray(item.lyrics) ? item.lyrics : [];
+      for (let lineIndex = 0; lineIndex < lyrics.length; lineIndex += lineCount) {
+        const groupLines = lyrics.slice(lineIndex, lineIndex + lineCount);
+        const groupEndIndex = lineIndex + groupLines.length - 1;
+        entries.push({
+          type: 'song',
+          programItemId: item.id,
+          title: item.title,
+          itemNumber: itemIndex + 1,
+          lineIndex,
+          lines: groupLines,
+          active: item.id === currentItemId && currentLineIndex >= lineIndex && currentLineIndex <= groupEndIndex
+        });
+      }
+      return;
+    }
+
+    if (item.type === 'ppt') {
+      const slides = Array.isArray(item.slides) ? item.slides : [];
+      slides.forEach((slide, slideIndex) => {
+        entries.push({
+          type: 'ppt',
+          programItemId: item.id,
+          title: item.title,
+          itemNumber: itemIndex + 1,
+          slideIndex,
+          slide,
+          active: item.id === currentItemId && currentSlideIndex === slideIndex
+        });
+      });
+      return;
+    }
+
+    entries.push({
+      type: 'note',
+      programItemId: item.id,
+      title: item.title,
+      itemNumber: itemIndex + 1,
+      active: item.id === currentItemId
+    });
+  });
+
+  return entries;
+}
+
+function renderProgramOverview(payload) {
+  programOverviewEntries = buildProgramOverviewEntries(payload);
+  overviewGrid.innerHTML = '';
+  overviewGrid.classList.add('overview-lyrics-grid');
+  overviewGrid.classList.remove('overview-ppt-grid');
+  overviewEmptyState.hidden = true;
+  overviewGrid.hidden = programOverviewEntries.length === 0;
+  overviewSubtitle.textContent = `예배 순서표 ${programOverviewEntries.length}개 카드`;
+  overviewJumpLabel.textContent = '순서 카드 번호';
+  jumpEnabled = programOverviewEntries.length > 0;
+  updateJumpDisplay();
+
+  if (!programOverviewEntries.length) {
+    renderEmptyState('순서표 내용이 없습니다', '제어 화면에서 예배 순서표에 곡 또는 PPT를 추가해 주세요.');
+    return;
+  }
+
+  programOverviewEntries.forEach((entry, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = entry.type === 'ppt' ? 'overview-slide-card' : 'overview-program-lyric-card';
+    button.classList.toggle('active', entry.active);
+    button.setAttribute('aria-label', `${index + 1}번 순서 카드로 이동`);
+
+    if (entry.type === 'ppt') {
+      const frame = document.createElement('div');
+      frame.className = 'overview-slide-frame';
+      const image = document.createElement('img');
+      image.className = 'overview-slide-image';
+      image.src = getAssetUrl(entry.slide?.url);
+      image.alt = `${entry.title} 슬라이드 ${entry.slideIndex + 1}`;
+      image.loading = 'lazy';
+      const number = document.createElement('span');
+      number.className = 'overview-slide-number';
+      number.textContent = `${index + 1}`;
+      frame.appendChild(image);
+      button.append(frame, number);
+    } else {
+      const text = document.createElement('span');
+      text.className = 'overview-lyric-text';
+      text.textContent = entry.type === 'note'
+        ? `[메모] ${entry.title}`
+        : entry.lines.map((line) => line || '(빈 줄)').join('\n');
+      const number = document.createElement('span');
+      number.className = 'overview-slide-number';
+      number.textContent = String(index + 1);
+      button.append(text, number);
+    }
+
+    button.addEventListener('click', () => {
+      applyProgramEntry(entry);
+    });
+    overviewGrid.appendChild(button);
+  });
+
+  requestAnimationFrame(() => {
+    const activeCard = overviewGrid.querySelector('.active');
+    activeCard?.scrollIntoView({
+      block: 'center',
+      inline: 'center'
+    });
+  });
+}
+
 function renderOverview(payload) {
+  const hasProgram = Array.isArray(payload.program?.items) && payload.program.items.length > 0;
+  if (hasProgram) {
+    renderProgramOverview(payload);
+    return;
+  }
+
+  programOverviewEntries = [];
   const hasPpt = Array.isArray(payload.ppt?.slides) && payload.ppt.slides.length > 0;
   overviewPptModeButton.disabled = !hasPpt;
 
@@ -322,6 +511,12 @@ async function submitJumpBuffer() {
 
   if (!Number.isInteger(inputValue)) {
     clearJumpBuffer();
+    return;
+  }
+
+  if (programOverviewEntries.length) {
+    const cardNumber = Math.min(Math.max(inputValue, 1), programOverviewEntries.length);
+    applyProgramEntry(programOverviewEntries[cardNumber - 1]);
     return;
   }
 
@@ -355,6 +550,7 @@ socket.on('connect', () => {
 
 socket.on('state', (payload) => {
   latestState = payload;
+  renderProgramSelect(payload);
   overviewMode = payload.viewMode === 'ppt' && Array.isArray(payload.ppt?.slides) && payload.ppt.slides.length > 0
     ? 'ppt'
     : 'lyrics';
@@ -374,6 +570,10 @@ overviewPptModeButton.addEventListener('click', () => {
   if (latestState?.ppt?.slides?.length) {
     syncViewMode('ppt');
   }
+});
+
+overviewProgramSelect.addEventListener('change', () => {
+  applyProgramItem(overviewProgramSelect.value);
 });
 
 document.addEventListener('keydown', (event) => {

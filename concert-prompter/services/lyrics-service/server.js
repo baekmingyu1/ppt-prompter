@@ -20,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SONGS_PATH = process.env.SONGS_PATH || path.join(__dirname, 'data', 'songs.json');
 const PPTS_PATH = process.env.PPTS_PATH || path.join(__dirname, 'data', 'ppts.json');
+const PROGRAM_PATH = process.env.PROGRAM_PATH || path.join(__dirname, 'data', 'program.json');
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const CONTROL_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'control-ui', 'public');
 const AUDIENCE_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'audience-ui', 'public');
@@ -135,8 +136,11 @@ const DEFAULT_DISPLAY_SETTINGS = {
 
 let songs = [];
 let ppts = [];
+let programItems = [];
+let undoStack = [];
 let state = {
   songId: null,
+  programItemId: '',
   lineIndex: 0,
   viewMode: 'lyrics',
   ppt: {
@@ -150,6 +154,7 @@ let state = {
     lineIndex: 0,
     message: ''
   },
+  emergencyMessage: '',
   blank: false,
   displaySettings: JSON.parse(JSON.stringify(DEFAULT_DISPLAY_SETTINGS)),
   updatedAt: new Date().toISOString()
@@ -189,8 +194,24 @@ async function loadPpts() {
 
   if (ppts.length > 0 && !state.ppt.id) {
     setPptById(ppts[0].id, {
-      switchToPptMode: false
+      switchToPptMode: false,
+      skipUndo: true
     });
+  }
+}
+
+async function loadProgram() {
+  try {
+    const raw = await fs.readFile(PROGRAM_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    programItems = Array.isArray(parsed) ? parsed.map(normalizeProgramItem).filter(Boolean) : [];
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+
+    programItems = [];
+    await saveProgram();
   }
 }
 
@@ -203,6 +224,13 @@ async function savePpts() {
     recursive: true
   });
   await fs.writeFile(PPTS_PATH, `${JSON.stringify(ppts, null, 2)}\n`, 'utf-8');
+}
+
+async function saveProgram() {
+  await fs.mkdir(path.dirname(PROGRAM_PATH), {
+    recursive: true
+  });
+  await fs.writeFile(PROGRAM_PATH, `${JSON.stringify(programItems, null, 2)}\n`, 'utf-8');
 }
 
 async function reconcilePptLibraryFromUploads() {
@@ -278,6 +306,55 @@ function createSongId() {
   return `song-${String(nextNumber).padStart(3, '0')}`;
 }
 
+function createProgramItemId() {
+  return `program-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeProgramItem(item) {
+  if (!item || typeof item !== 'object') return null;
+
+  const type = ['song', 'ppt', 'note'].includes(item.type) ? item.type : 'note';
+  const title = String(item.title || '').trim();
+  const refId = String(item.refId || '').trim();
+
+  if (type !== 'note' && !refId) return null;
+  if (type === 'note' && !title) return null;
+
+  return {
+    id: String(item.id || createProgramItemId()),
+    type,
+    title: title || '',
+    refId,
+    createdAt: item.createdAt || new Date().toISOString()
+  };
+}
+
+function getProgramPayload() {
+  return programItems.map((item) => {
+    const song = item.type === 'song' ? songs.find((entry) => entry.id === item.refId) : null;
+    const ppt = item.type === 'ppt' ? ppts.find((entry) => entry.id === item.refId) : null;
+    const missing = (item.type === 'song' && !song) || (item.type === 'ppt' && !ppt);
+    const title = item.title
+      || (song ? `${song.title} - ${song.artist || ''}` : '')
+      || (ppt ? ppt.filename : '')
+      || '메모';
+
+    return {
+      ...item,
+      title,
+      missing,
+      lyrics: song?.lyrics || [],
+      artist: song?.artist || '',
+      slides: Array.isArray(ppt?.slides) ? ppt.slides : [],
+      filename: ppt?.filename || ''
+    };
+  });
+}
+
+function getProgramItemIndex(programItemId) {
+  return programItems.findIndex((item) => item.id === programItemId);
+}
+
 function getCurrentSong() {
   return songs.find((song) => song.id === state.songId) || songs[0];
 }
@@ -289,6 +366,30 @@ function clampLineIndex(index, song) {
 
 function touchState() {
   state.updatedAt = new Date().toISOString();
+}
+
+function cloneStateForUndo() {
+  return JSON.parse(JSON.stringify(state));
+}
+
+function pushUndoState() {
+  undoStack.push(cloneStateForUndo());
+
+  if (undoStack.length > 20) {
+    undoStack = undoStack.slice(-20);
+  }
+}
+
+function undoLastState() {
+  const previousState = undoStack.pop();
+
+  if (!previousState) {
+    return false;
+  }
+
+  state = previousState;
+  touchState();
+  return true;
 }
 
 function getVisibleLines(lyrics, startIndex, count) {
@@ -324,6 +425,9 @@ function setPptById(pptId, options = {}) {
     throw new Error(`Unknown pptId: ${pptId}`);
   }
 
+  if (!options.skipUndo) {
+    pushUndoState();
+  }
   state.ppt = {
     id: ppt.id,
     filename: ppt.filename,
@@ -667,21 +771,28 @@ function buildDisplaySettingsUpdate(payload = {}) {
 }
 
 function updateDisplaySettings(settings) {
+  pushUndoState();
   state.displaySettings = normalizeDisplaySettings(buildDisplaySettingsUpdate(settings));
   touchState();
+}
+
+function getEmergencyLines() {
+  const message = String(state.emergencyMessage || '').trim();
+  return message ? message.split(/\r?\n/).filter(Boolean) : [];
 }
 
 function buildControlPayload() {
   const song = getCurrentSong();
   const lyrics = song.lyrics || [];
   const lineCount = state.displaySettings.lineCount;
-  const currentLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex, lineCount);
+  const emergencyLines = state.blank ? [] : getEmergencyLines();
+  const currentLines = state.blank ? [] : (emergencyLines.length ? emergencyLines : getVisibleLines(lyrics, state.lineIndex, lineCount));
   const nextLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex + lineCount, lineCount);
   const singerLineIndex = getEffectiveSingerLineIndex(song);
   const singerMessageLines = getSingerMessageLines();
-  const singerCurrentLines = state.singerControl.enabled
-    ? singerMessageLines
-    : (state.blank ? [] : getVisibleLines(lyrics, singerLineIndex, lineCount));
+  const singerCurrentLines = state.blank
+    ? []
+    : (emergencyLines.length ? emergencyLines : (state.singerControl.enabled ? singerMessageLines : getVisibleLines(lyrics, singerLineIndex, lineCount)));
   const singerNextLines = state.singerControl.enabled
     ? []
     : (state.blank ? [] : getVisibleLines(lyrics, singerLineIndex + lineCount, lineCount));
@@ -691,12 +802,18 @@ function buildControlPayload() {
   return {
     role: 'control',
     state,
+    canUndo: undoStack.length > 0,
+    connections: getConnectionPayload(),
     songs: songs.map((item) => ({
       id: item.id,
       title: item.title,
       artist: item.artist,
       totalLines: (item.lyrics || []).length
     })),
+    program: {
+      currentItemId: state.programItemId,
+      items: getProgramPayload()
+    },
     song: {
       id: song.id,
       title: song.title,
@@ -730,7 +847,8 @@ function buildAudiencePayload() {
   const song = getCurrentSong();
   const lyrics = song.lyrics || [];
   const lineCount = state.displaySettings.lineCount;
-  const currentLines = state.blank ? [] : getVisibleLines(lyrics, state.lineIndex, lineCount);
+  const emergencyLines = state.blank ? [] : getEmergencyLines();
+  const currentLines = state.blank ? [] : (emergencyLines.length ? emergencyLines : getVisibleLines(lyrics, state.lineIndex, lineCount));
 
   return {
     role: 'audience',
@@ -763,9 +881,10 @@ function buildSingerPayload() {
   const lineCount = state.displaySettings.lineCount;
   const lineIndex = getEffectiveSingerLineIndex(song);
   const messageLines = getSingerMessageLines();
+  const emergencyLines = state.blank ? [] : getEmergencyLines();
   const currentLines = state.blank
     ? []
-    : (state.singerControl.enabled ? messageLines : getVisibleLines(lyrics, lineIndex, lineCount));
+    : (emergencyLines.length ? emergencyLines : (state.singerControl.enabled ? messageLines : getVisibleLines(lyrics, lineIndex, lineCount)));
   const nextLines = state.blank || state.singerControl.enabled
     ? []
     : getVisibleLines(lyrics, lineIndex + lineCount, lineCount);
@@ -793,7 +912,8 @@ function buildSingerPayload() {
     current: currentLines[0] || '',
     next: nextLines[0] || '',
     currentLines,
-    nextLines
+    nextLines,
+    lyrics
   };
 }
 
@@ -803,21 +923,34 @@ function emitState() {
   io.to('singer').emit('state', buildSingerPayload());
 }
 
-function setSong(songId) {
+function getConnectionPayload() {
+  return {
+    control: io.sockets.adapter.rooms.get('control')?.size || 0,
+    audience: io.sockets.adapter.rooms.get('audience')?.size || 0,
+    singer: io.sockets.adapter.rooms.get('singer')?.size || 0
+  };
+}
+
+function setSong(songId, options = {}) {
   const exists = songs.some((song) => song.id === songId);
 
   if (!exists) {
     throw new Error(`존재하지 않는 songId입니다: ${songId}`);
   }
 
+  if (!options.skipUndo) {
+    pushUndoState();
+  }
   state.songId = songId;
   state.lineIndex = 0;
+  state.viewMode = 'lyrics';
   syncSingerLineIndex(getCurrentSong());
   touchState();
 }
 
 function moveLine(delta) {
   const song = getCurrentSong();
+  pushUndoState();
   state.lineIndex = clampLineIndex(state.lineIndex + delta * state.displaySettings.lineCount, song);
   syncSingerLineIndex(song);
   touchState();
@@ -825,12 +958,14 @@ function moveLine(delta) {
 
 function setLineIndex(index) {
   const song = getCurrentSong();
+  pushUndoState();
   state.lineIndex = clampLineIndex(index, song);
   syncSingerLineIndex(song);
   touchState();
 }
 
 function setSingerControlEnabled(enabled) {
+  pushUndoState();
   state.singerControl.enabled = Boolean(enabled);
   state.singerControl.lineIndex = state.lineIndex;
   touchState();
@@ -838,17 +973,32 @@ function setSingerControlEnabled(enabled) {
 
 function setSingerMessage(message) {
   const nextMessage = String(message || '').slice(0, 1000);
+  pushUndoState();
   state.singerControl.message = nextMessage;
   state.singerControl.enabled = Boolean(nextMessage.trim());
   touchState();
 }
 
 function toggleBlank(blank) {
+  pushUndoState();
   state.blank = Boolean(blank);
   touchState();
 }
 
+function setEmergencyMessage(message) {
+  const nextMessage = String(message || '').trim().slice(0, 500);
+  pushUndoState();
+  state.emergencyMessage = nextMessage;
+
+  if (nextMessage) {
+    state.viewMode = 'lyrics';
+  }
+
+  touchState();
+}
+
 function setViewMode(mode) {
+  pushUndoState();
   state.viewMode = normalizeViewMode(mode);
   touchState();
 }
@@ -856,6 +1006,7 @@ function setViewMode(mode) {
 function movePptSlide(delta) {
   if (state.ppt.slides.length === 0) return;
 
+  pushUndoState();
   state.ppt.slideIndex = clampPptSlideIndex(state.ppt.slideIndex + delta);
   state.viewMode = 'ppt';
   touchState();
@@ -864,6 +1015,7 @@ function movePptSlide(delta) {
 function setPptSlideIndex(index) {
   if (state.ppt.slides.length === 0) return;
 
+  pushUndoState();
   state.ppt.slideIndex = clampPptSlideIndex(index);
   state.viewMode = 'ppt';
   touchState();
@@ -996,6 +1148,194 @@ async function deletePpt(pptId) {
   await savePpts();
 }
 
+async function addProgramItem({ type, refId, title }) {
+  const normalizedType = ['song', 'ppt', 'note'].includes(type) ? type : 'note';
+  const itemTitle = String(title || '').trim();
+  const itemRefId = String(refId || '').trim();
+
+  if (normalizedType === 'song' && !songs.some((song) => song.id === itemRefId)) {
+    throw new Error('Unknown songId.');
+  }
+
+  if (normalizedType === 'ppt' && !ppts.some((ppt) => ppt.id === itemRefId)) {
+    throw new Error('Unknown pptId.');
+  }
+
+  if (normalizedType === 'note' && !itemTitle) {
+    throw new Error('메모 내용을 입력해 주세요.');
+  }
+
+  const song = normalizedType === 'song' ? songs.find((entry) => entry.id === itemRefId) : null;
+  const ppt = normalizedType === 'ppt' ? ppts.find((entry) => entry.id === itemRefId) : null;
+  const nextItem = {
+    id: createProgramItemId(),
+    type: normalizedType,
+    refId: normalizedType === 'note' ? '' : itemRefId,
+    title: itemTitle || (song ? `${song.title} - ${song.artist || ''}` : ppt?.filename || ''),
+    createdAt: new Date().toISOString()
+  };
+
+  programItems.push(nextItem);
+  await saveProgram();
+  touchState();
+  return nextItem;
+}
+
+async function deleteProgramItem(programItemId) {
+  const itemIndex = getProgramItemIndex(programItemId);
+
+  if (itemIndex === -1) {
+    throw new Error('Unknown program item.');
+  }
+
+  programItems.splice(itemIndex, 1);
+
+  if (state.programItemId === programItemId) {
+    state.programItemId = '';
+  }
+
+  await saveProgram();
+  touchState();
+}
+
+async function moveProgramItem(programItemId, direction) {
+  const itemIndex = getProgramItemIndex(programItemId);
+  const nextIndex = itemIndex + Number(direction);
+
+  if (itemIndex === -1 || nextIndex < 0 || nextIndex >= programItems.length) {
+    return;
+  }
+
+  const [item] = programItems.splice(itemIndex, 1);
+  programItems.splice(nextIndex, 0, item);
+  await saveProgram();
+  touchState();
+}
+
+async function reorderProgramItem(programItemId, targetIndex) {
+  const itemIndex = getProgramItemIndex(programItemId);
+  const normalizedTargetIndex = Number(targetIndex);
+
+  if (
+    itemIndex === -1
+    || !Number.isInteger(normalizedTargetIndex)
+    || normalizedTargetIndex < 0
+    || normalizedTargetIndex >= programItems.length
+    || itemIndex === normalizedTargetIndex
+  ) {
+    return;
+  }
+
+  const [item] = programItems.splice(itemIndex, 1);
+  programItems.splice(normalizedTargetIndex, 0, item);
+  await saveProgram();
+  touchState();
+}
+
+function applyProgramItem(programItemId, options = {}) {
+  const item = programItems.find((entry) => entry.id === programItemId);
+
+  if (!item) {
+    throw new Error('Unknown program item.');
+  }
+
+  pushUndoState();
+  state.programItemId = item.id;
+
+  if (item.type === 'song') {
+    setSong(item.refId, {
+      skipUndo: true
+    });
+    if (Number.isInteger(Number(options.lineIndex))) {
+      state.lineIndex = clampLineIndex(Number(options.lineIndex), getCurrentSong());
+      syncSingerLineIndex(getCurrentSong());
+      touchState();
+    }
+    return;
+  }
+
+  if (item.type === 'ppt') {
+    setPptById(item.refId, {
+      skipUndo: true
+    });
+    if (Number.isInteger(Number(options.slideIndex))) {
+      state.ppt.slideIndex = clampPptSlideIndex(Number(options.slideIndex));
+      state.viewMode = 'ppt';
+      touchState();
+    }
+    return;
+  }
+
+  touchState();
+}
+
+function buildBackupPayload() {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    songs,
+    ppts,
+    programItems,
+    displaySettings: state.displaySettings
+  };
+}
+
+async function restoreBackup(payload) {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid backup payload.');
+  }
+
+  const nextSongs = Array.isArray(payload.songs) ? payload.songs : [];
+  if (nextSongs.length === 0) {
+    throw new Error('백업에 곡 목록이 없습니다.');
+  }
+
+  songs = nextSongs.map((song, index) => ({
+    id: String(song.id || `song-${String(index + 1).padStart(3, '0')}`),
+    title: String(song.title || '').trim() || `곡 ${index + 1}`,
+    artist: String(song.artist || '').trim(),
+    lyrics: Array.isArray(song.lyrics)
+      ? song.lyrics.map((line) => String(line).trim()).filter(Boolean)
+      : ['가사를 입력해 주세요']
+  }));
+  ppts = Array.isArray(payload.ppts) ? payload.ppts : [];
+  programItems = Array.isArray(payload.programItems)
+    ? payload.programItems.map(normalizeProgramItem).filter(Boolean)
+    : [];
+  state.displaySettings = normalizeDisplaySettings(payload.displaySettings || state.displaySettings);
+  state.songId = songs[0].id;
+  state.lineIndex = 0;
+  state.programItemId = '';
+  state.emergencyMessage = '';
+  state.blank = false;
+  state.viewMode = 'lyrics';
+  state.singerControl = {
+    enabled: false,
+    lineIndex: 0,
+    message: ''
+  };
+  undoStack = [];
+
+  if (ppts.length > 0) {
+    setPptById(ppts[0].id, {
+      switchToPptMode: false,
+      skipUndo: true
+    });
+  } else {
+    state.ppt = {
+      id: '',
+      filename: '',
+      slideIndex: 0,
+      slides: []
+    };
+  }
+
+  await saveSongs();
+  await savePpts();
+  await saveProgram();
+  touchState();
+}
+
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
@@ -1020,6 +1360,27 @@ app.get('/api/state/audience', (req, res) => {
 
 app.get('/api/state/singer', (req, res) => {
   res.json(buildSingerPayload());
+});
+
+app.get('/api/backup', (req, res) => {
+  res.json(buildBackupPayload());
+});
+
+app.post('/api/backup/restore', async (req, res) => {
+  try {
+    await restoreBackup(req.body);
+    emitState();
+
+    res.json({
+      ok: true,
+      state
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
 });
 
 app.post('/api/control/song', (req, res) => {
@@ -1060,6 +1421,17 @@ app.post('/api/control/prev', (req, res) => {
   });
 });
 
+app.post('/api/control/undo', (req, res) => {
+  const undone = undoLastState();
+  emitState();
+
+  res.json({
+    ok: true,
+    undone,
+    state
+  });
+});
+
 app.post('/api/control/line', (req, res) => {
   const lineIndex = Number(req.body.lineIndex);
 
@@ -1082,6 +1454,16 @@ app.post('/api/control/line', (req, res) => {
 
 app.post('/api/control/blank', (req, res) => {
   toggleBlank(req.body.blank);
+  emitState();
+
+  res.json({
+    ok: true,
+    state
+  });
+});
+
+app.post('/api/control/emergency-message', (req, res) => {
+  setEmergencyMessage(req.body.message);
   emitState();
 
   res.json({
@@ -1301,6 +1683,7 @@ io.on('connection', (socket) => {
     }
 
     socket.join(role);
+    socket.data.role = role;
 
     if (role === 'control') {
       socket.emit('state', buildControlPayload());
@@ -1313,6 +1696,13 @@ io.on('connection', (socket) => {
     if (role === 'singer') {
       socket.emit('state', buildSingerPayload());
     }
+
+    io.to('control').emit('state', buildControlPayload());
+  });
+
+  socket.on('disconnect', () => {
+    if (!socket.data.role) return;
+    io.to('control').emit('state', buildControlPayload());
   });
 
   socket.on('control:next', () => {
@@ -1322,6 +1712,11 @@ io.on('connection', (socket) => {
 
   socket.on('control:prev', () => {
     moveLine(-1);
+    emitState();
+  });
+
+  socket.on('control:undo', () => {
+    undoLastState();
     emitState();
   });
 
@@ -1352,6 +1747,11 @@ io.on('connection', (socket) => {
 
   socket.on('control:blank', ({ blank }) => {
     toggleBlank(blank);
+    emitState();
+  });
+
+  socket.on('control:setEmergencyMessage', ({ message }) => {
+    setEmergencyMessage(message);
     emitState();
   });
 
@@ -1529,10 +1929,125 @@ io.on('connection', (socket) => {
       });
     }
   });
+
+  socket.on('control:addProgramItem', async (payload, callback) => {
+    try {
+      await addProgramItem(payload || {});
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:applyProgramItem', ({ programItemId, lineIndex, slideIndex }) => {
+    try {
+      applyProgramItem(String(programItemId || ''), {
+        lineIndex,
+        slideIndex
+      });
+      emitState();
+    } catch (error) {
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:moveProgramItem', async ({ programItemId, direction }, callback) => {
+    try {
+      await moveProgramItem(String(programItemId || ''), Number(direction));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:reorderProgramItem', async ({ programItemId, targetIndex }, callback) => {
+    try {
+      await reorderProgramItem(String(programItemId || ''), Number(targetIndex));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:deleteProgramItem', async ({ programItemId }, callback) => {
+    try {
+      await deleteProgramItem(String(programItemId || ''));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
 });
 
 await loadSongs();
 await loadPpts();
+await loadProgram();
 
 server.listen(PORT, () => {
   console.log(`[lyrics-service] running on http://localhost:${PORT}`);

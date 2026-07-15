@@ -6,19 +6,26 @@ const MAX_BACKGROUND_IMAGE_BYTES = MAX_BACKGROUND_IMAGE_MB * 1024 * 1024;
 const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 
 const connectionStatus = document.getElementById('connectionStatus');
+const audienceScreenStatus = document.getElementById('audienceScreenStatus');
+const singerScreenStatus = document.getElementById('singerScreenStatus');
 const songSelect = document.getElementById('songSelect');
 const prevSongButton = document.getElementById('prevSongButton');
 const songStartButton = document.getElementById('songStartButton');
 const nextSongButton = document.getElementById('nextSongButton');
-const songTitle = document.getElementById('songTitle');
-const lineCounter = document.getElementById('lineCounter');
-const currentLyric = document.getElementById('currentLyric');
-const nextLyric = document.getElementById('nextLyric');
-const controlPptPreview = document.getElementById('controlPptPreview');
+const audiencePreviewStatus = document.getElementById('audiencePreviewStatus');
+const audienceLivePreview = document.getElementById('audienceLivePreview');
+const audiencePreviewLyric = document.getElementById('audiencePreviewLyric');
+const audiencePreviewPpt = document.getElementById('audiencePreviewPpt');
 const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
+const undoButton = document.getElementById('undoButton');
 const blankOnButton = document.getElementById('blankOnButton');
 const blankOffButton = document.getElementById('blankOffButton');
+const emergencyStatus = document.getElementById('emergencyStatus');
+const emergencyMessageInput = document.getElementById('emergencyMessageInput');
+const sendEmergencyMessageButton = document.getElementById('sendEmergencyMessageButton');
+const clearEmergencyMessageButton = document.getElementById('clearEmergencyMessageButton');
+const emergencyPresetButtons = Array.from(document.querySelectorAll('.emergency-preset-button'));
 const pptInput = document.getElementById('pptInput');
 const pptSelect = document.getElementById('pptSelect');
 const deletePptButton = document.getElementById('deletePptButton');
@@ -73,6 +80,19 @@ const settingsToggleButton = document.getElementById('settingsToggleButton');
 const displaySettingsBody = document.getElementById('displaySettingsBody');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
+const programStatus = document.getElementById('programStatus');
+const addCurrentSongProgramButton = document.getElementById('addCurrentSongProgramButton');
+const addCurrentPptProgramButton = document.getElementById('addCurrentPptProgramButton');
+const programNoteInput = document.getElementById('programNoteInput');
+const addProgramNoteButton = document.getElementById('addProgramNoteButton');
+const applyProgramItemButton = document.getElementById('applyProgramItemButton');
+const deleteProgramItemButton = document.getElementById('deleteProgramItemButton');
+const prevProgramItemButton = document.getElementById('prevProgramItemButton');
+const nextProgramItemButton = document.getElementById('nextProgramItemButton');
+const programList = document.getElementById('programList');
+const backupStatus = document.getElementById('backupStatus');
+const exportBackupButton = document.getElementById('exportBackupButton');
+const importBackupInput = document.getElementById('importBackupInput');
 
 function getScreenUrl(configuredUrl, localPort, servicePath) {
   if (configuredUrl && !configuredUrl.startsWith('/')) {
@@ -109,6 +129,9 @@ if (audienceBackgroundHint) {
 let latestState = null;
 let settingsRenderLocked = false;
 let pendingControlDisplaySettings = null;
+let selectedProgramItemId = '';
+let draggedProgramItemId = '';
+let lastAutoScrollKey = '';
 
 function isControlDisplaySettingsInput(element) {
   return [
@@ -145,7 +168,16 @@ function renderSongs(payload) {
     songSelect.appendChild(option);
   });
 
-  songSelect.value = payload.song.id;
+  const currentSongId = payload.song.id;
+  songSelect.value = currentSongId;
+
+  if (songSelect.value !== currentSongId) {
+    const option = document.createElement('option');
+    option.value = currentSongId;
+    option.textContent = `${payload.song.title} - ${payload.song.artist || ''}`;
+    songSelect.appendChild(option);
+    songSelect.value = currentSongId;
+  }
 
   const currentSongIndex = payload.songs.findIndex((song) => song.id === payload.song.id);
   prevSongButton.disabled = currentSongIndex <= 0;
@@ -153,7 +185,152 @@ function renderSongs(payload) {
   nextSongButton.disabled = currentSongIndex === -1 || currentSongIndex >= payload.songs.length - 1;
 }
 
-function renderLyricsList(payload) {
+function getProgramTypeLabel(type) {
+  if (type === 'song') return '곡';
+  if (type === 'ppt') return 'PPT';
+  return '메모';
+}
+
+function getSelectedProgramIndex(items) {
+  return items.findIndex((item) => item.id === selectedProgramItemId);
+}
+
+function getProgramStepBaseIndex(items, currentItemId) {
+  const currentIndex = items.findIndex((item) => item.id === currentItemId);
+  if (currentIndex !== -1) return currentIndex;
+  return getSelectedProgramIndex(items);
+}
+
+function applyProgramItemByIndex(items, index) {
+  const item = items[index];
+  if (!item || item.missing) return;
+
+  selectedProgramItemId = item.id;
+  socket.emit('control:applyProgramItem', {
+    programItemId: item.id
+  });
+}
+
+function moveProgramStep(delta) {
+  const items = latestState?.program?.items || [];
+  const currentItemId = latestState?.program?.currentItemId || '';
+  const baseIndex = getProgramStepBaseIndex(items, currentItemId);
+
+  applyProgramItemByIndex(items, baseIndex + delta);
+}
+
+function scrollElementIntoContainer(element, container) {
+  if (!element || !container) return;
+
+  const targetTop = element.offsetTop - (container.clientHeight / 2) + (element.offsetHeight / 2);
+  container.scrollTop = Math.max(targetTop, 0);
+}
+
+function renderProgram(payload, shouldAutoScroll = true) {
+  const items = payload.program?.items || [];
+  const currentItemId = payload.program?.currentItemId || '';
+
+  if (!items.some((item) => item.id === selectedProgramItemId)) {
+    selectedProgramItemId = currentItemId || items[0]?.id || '';
+  }
+
+  programStatus.textContent = `${items.length}개`;
+  programList.innerHTML = '';
+
+  items.forEach((item, index) => {
+    const li = document.createElement('li');
+    const button = document.createElement('button');
+    const type = document.createElement('span');
+    const title = document.createElement('span');
+
+    li.draggable = true;
+    li.dataset.programItemId = item.id;
+    li.addEventListener('dragstart', (event) => {
+      draggedProgramItemId = item.id;
+      li.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', item.id);
+    });
+    li.addEventListener('dragend', () => {
+      draggedProgramItemId = '';
+      li.classList.remove('dragging');
+      programList.querySelectorAll('.drag-over').forEach((element) => {
+        element.classList.remove('drag-over');
+      });
+    });
+    li.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      if (draggedProgramItemId && draggedProgramItemId !== item.id) {
+        li.classList.add('drag-over');
+      }
+    });
+    li.addEventListener('dragleave', () => {
+      li.classList.remove('drag-over');
+    });
+    li.addEventListener('drop', (event) => {
+      event.preventDefault();
+      li.classList.remove('drag-over');
+      const sourceId = event.dataTransfer.getData('text/plain') || draggedProgramItemId;
+      if (!sourceId || sourceId === item.id) return;
+
+      socket.emit('control:reorderProgramItem', {
+        programItemId: sourceId,
+        targetIndex: index
+      });
+    });
+
+    button.type = 'button';
+    button.className = 'program-item-button';
+    button.classList.toggle('active', item.id === currentItemId);
+    button.classList.toggle('selected', item.id === selectedProgramItemId);
+    button.disabled = Boolean(item.missing);
+    type.className = 'program-item-type';
+    title.className = 'program-item-title';
+    type.textContent = `${index + 1}. ${getProgramTypeLabel(item.type)}`;
+    title.textContent = item.missing ? `${item.title} (삭제됨)` : item.title;
+
+    button.append(type, title);
+    button.addEventListener('click', () => {
+      selectedProgramItemId = item.id;
+      renderProgram(payload);
+    });
+    button.addEventListener('dblclick', () => {
+      socket.emit('control:applyProgramItem', {
+        programItemId: item.id
+      });
+    });
+
+    li.appendChild(button);
+    programList.appendChild(li);
+  });
+
+  const selectedIndex = getSelectedProgramIndex(items);
+  const baseIndex = getProgramStepBaseIndex(items, currentItemId);
+  const hasSelection = selectedIndex !== -1;
+  applyProgramItemButton.disabled = !hasSelection || Boolean(items[selectedIndex]?.missing);
+  deleteProgramItemButton.disabled = !hasSelection;
+  prevProgramItemButton.disabled = baseIndex <= 0;
+  nextProgramItemButton.disabled = baseIndex === -1 || baseIndex >= items.length - 1;
+  addCurrentPptProgramButton.disabled = !(payload.ppt?.id);
+
+  prevProgramItemButton.onclick = () => {
+    moveProgramStep(-1);
+  };
+  nextProgramItemButton.onclick = () => {
+    moveProgramStep(1);
+  };
+
+  const focusedProgramItem = programList.querySelector('.program-item-button.active')
+    || programList.querySelector('.program-item-button.selected');
+
+  if (shouldAutoScroll && focusedProgramItem) {
+    requestAnimationFrame(() => {
+      scrollElementIntoContainer(focusedProgramItem, programList);
+    });
+  }
+}
+
+function renderLyricsList(payload, shouldAutoScroll = true) {
   lyricsList.innerHTML = '';
 
   payload.lyrics.forEach((line, index) => {
@@ -178,13 +355,10 @@ function renderLyricsList(payload) {
 
   const activeLine = lyricsList.querySelector('.active');
 
-  if (activeLine) {
+  if (shouldAutoScroll && activeLine) {
     requestAnimationFrame(() => {
       const scrollContainer = lyricsList.closest('.lyrics-scroll');
-      if (!scrollContainer) return;
-
-      const targetTop = activeLine.offsetTop - (scrollContainer.clientHeight / 2) + (activeLine.offsetHeight / 2);
-      scrollContainer.scrollTop = Math.max(targetTop, 0);
+      scrollElementIntoContainer(activeLine, scrollContainer);
     });
   }
 }
@@ -255,8 +429,6 @@ function renderDisplaySettings(payload) {
 }
 
 function applyControlDisplaySettings(currentFontSizePx, nextFontSizePx, singerPreviewCurrentFontSizePx = 20, singerPreviewNextFontSizePx = 20) {
-  currentLyric.style.fontSize = `${currentFontSizePx}px`;
-  nextLyric.style.fontSize = `${nextFontSizePx}px`;
   singerCurrentLyric.style.fontSize = `${singerPreviewCurrentFontSizePx}px`;
   singerNextLyric.style.fontSize = `${singerPreviewNextFontSizePx}px`;
 }
@@ -289,16 +461,6 @@ function getLineCounterText(payload) {
   );
 
   return start === end ? `${start} / ${payload.song.totalLines}` : `${start}-${end} / ${payload.song.totalLines}`;
-}
-
-function updateCurrentLyricScrollState() {
-  requestAnimationFrame(() => {
-    const hasOverflow = currentLyric.scrollHeight > currentLyric.clientHeight + 12;
-    currentLyric.classList.toggle('is-scrollable', hasOverflow);
-    if (!hasOverflow) {
-      currentLyric.scrollTop = 0;
-    }
-  });
 }
 
 function updateSingerLyricScrollState() {
@@ -381,20 +543,6 @@ function renderPptControl(payload) {
   pptModeButton.disabled = !hasPpt;
   prevPptButton.disabled = !hasPpt || Number(ppt.slideIndex || 0) <= 0;
   nextPptButton.disabled = !hasPpt || Number(ppt.slideIndex || 0) >= ppt.slides.length - 1;
-  currentLyric.closest('.current-box')?.classList.toggle('is-ppt-preview', isPptMode && hasPpt);
-  nextLyric.closest('.next-box')?.classList.toggle('is-ppt-mode', isPptMode && hasPpt);
-
-  if (isPptMode && hasPpt) {
-    currentLyric.hidden = true;
-    nextLyric.textContent = 'PPT 화면 표시 중';
-    controlPptPreview.hidden = false;
-    controlPptPreview.src = getAssetUrl(ppt.currentSlide?.url);
-    return;
-  }
-
-  currentLyric.hidden = false;
-  controlPptPreview.hidden = true;
-  controlPptPreview.removeAttribute('src');
 }
 
 function renderBlankControl(payload) {
@@ -405,22 +553,87 @@ function renderBlankControl(payload) {
   blankOffButton.setAttribute('aria-pressed', String(!isBlank));
 }
 
+function renderEmergencyControl(payload) {
+  const message = String(payload.state.emergencyMessage || '');
+  emergencyStatus.textContent = message ? '표시 중' : '꺼짐';
+  emergencyStatus.classList.toggle('saved', Boolean(message));
+  clearEmergencyMessageButton.disabled = !message;
+
+  if (document.activeElement !== emergencyMessageInput) {
+    emergencyMessageInput.value = message;
+  }
+}
+
+function renderScreenConnections(payload) {
+  const connections = payload.connections || {};
+  const audienceCount = Number(connections.audience || 0);
+  const singerCount = Number(connections.singer || 0);
+
+  audienceScreenStatus.textContent = `관객 ${audienceCount}`;
+  singerScreenStatus.textContent = `가수 ${singerCount}`;
+  audienceScreenStatus.classList.toggle('connected', audienceCount > 0);
+  singerScreenStatus.classList.toggle('connected', singerCount > 0);
+}
+
+function renderAudiencePreview(payload) {
+  const settings = payload.state.displaySettings?.audience || {};
+  const isBlank = Boolean(payload.state.blank);
+  const isPptMode = payload.viewMode === 'ppt' && payload.ppt?.currentSlide;
+  const backgroundImage = settings.backgroundImage ? `url("${settings.backgroundImage}")` : '';
+
+  audienceLivePreview.classList.toggle('is-blank', isBlank);
+  audienceLivePreview.style.backgroundImage = isBlank ? '' : backgroundImage;
+  audiencePreviewLyric.hidden = isBlank || isPptMode;
+  audiencePreviewPpt.hidden = isBlank || !isPptMode;
+
+  if (isBlank) {
+    audiencePreviewStatus.textContent = '빈 화면';
+    audiencePreviewPpt.removeAttribute('src');
+    audiencePreviewLyric.textContent = '';
+    return;
+  }
+
+  if (isPptMode) {
+    audiencePreviewStatus.textContent = 'PPT';
+    audiencePreviewPpt.src = getAssetUrl(payload.ppt.currentSlide.url);
+    audiencePreviewLyric.textContent = '';
+    return;
+  }
+
+  audiencePreviewStatus.textContent = payload.state.emergencyMessage ? '긴급 문구' : '가사';
+  audiencePreviewPpt.removeAttribute('src');
+  audiencePreviewLyric.textContent = getLinesText(payload.currentLines) || '-';
+  audiencePreviewLyric.style.color = settings.fontColor || '#fff';
+  audiencePreviewLyric.style.fontWeight = String(settings.fontWeight || 800);
+  audiencePreviewLyric.style.fontSize = `${Math.min(Math.max(Number(settings.fontSizeVw || 6) * 4, 18), 42)}px`;
+  audiencePreviewLyric.style.top = `${Number(settings.verticalPositionPercent || 50)}%`;
+}
+
 function render(payload) {
+  const nextAutoScrollKey = [
+    payload.song?.id || '',
+    payload.state?.lineIndex ?? '',
+    payload.program?.currentItemId || '',
+    payload.viewMode || '',
+    payload.ppt?.slideIndex ?? ''
+  ].join('|');
+  const shouldAutoScroll = nextAutoScrollKey !== lastAutoScrollKey;
+  lastAutoScrollKey = nextAutoScrollKey;
+
   latestState = payload;
 
   renderSongs(payload);
-  renderLyricsList(payload);
+  renderProgram(payload, shouldAutoScroll);
+  renderLyricsList(payload, shouldAutoScroll);
   renderDisplaySettings(payload);
 
-  songTitle.textContent = `${payload.song.title} - ${payload.song.artist || ''}`;
-  lineCounter.textContent = getLineCounterText(payload);
-
-  currentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.currentLines);
-  nextLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(payload.nextLines);
-  updateCurrentLyricScrollState();
+  undoButton.disabled = !payload.canUndo;
   renderSingerControl(payload);
   renderPptControl(payload);
   renderBlankControl(payload);
+  renderEmergencyControl(payload);
+  renderScreenConnections(payload);
+  renderAudiencePreview(payload);
 }
 
 socket.on('connect', () => {
@@ -443,6 +656,146 @@ socket.on('state', (payload) => {
 
 socket.on('errorMessage', (payload) => {
   alert(payload.message || '오류가 발생했습니다.');
+});
+
+function setBackupStatus(message, type = '') {
+  backupStatus.textContent = message;
+  backupStatus.classList.remove('saved', 'error');
+  if (type) {
+    backupStatus.classList.add(type);
+  }
+}
+
+async function exportBackup() {
+  try {
+    setBackupStatus('저장 중');
+    const response = await fetch(`${LYRICS_SERVICE_URL}/api/backup`);
+
+    if (!response.ok) {
+      throw new Error('백업 파일을 만들지 못했습니다.');
+    }
+
+    const backup = await response.json();
+    const blob = new Blob([`${JSON.stringify(backup, null, 2)}\n`], {
+      type: 'application/json'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `concert-prompter-backup-${date}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setBackupStatus('저장 완료', 'saved');
+  } catch (error) {
+    setBackupStatus('저장 실패', 'error');
+    alert(error.message || '백업 저장 중 오류가 발생했습니다.');
+  }
+}
+
+async function restoreBackupFile(file) {
+  if (!file) return;
+  if (!confirm('현재 곡 목록, PPT 목록, 순서표, 화면 설정을 백업 파일로 덮어쓸까요?')) {
+    importBackupInput.value = '';
+    return;
+  }
+
+  try {
+    setBackupStatus('복원 중');
+    const backup = JSON.parse(await file.text());
+    const response = await fetch(`${LYRICS_SERVICE_URL}/api/backup/restore`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(backup)
+    });
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message || '백업 복원에 실패했습니다.');
+    }
+
+    setBackupStatus('복원 완료', 'saved');
+  } catch (error) {
+    setBackupStatus('복원 실패', 'error');
+    alert(error.message || '백업 복원 중 오류가 발생했습니다.');
+  } finally {
+    importBackupInput.value = '';
+  }
+}
+
+exportBackupButton.addEventListener('click', exportBackup);
+
+importBackupInput.addEventListener('change', () => {
+  restoreBackupFile(importBackupInput.files?.[0]);
+});
+
+function addProgramItem(payload) {
+  socket.emit('control:addProgramItem', payload, (response) => {
+    if (!response?.ok) {
+      alert(response?.message || '순서표 항목을 추가하지 못했습니다.');
+    }
+  });
+}
+
+addCurrentSongProgramButton.addEventListener('click', () => {
+  if (!latestState?.song?.id) return;
+
+  addProgramItem({
+    type: 'song',
+    refId: latestState.song.id,
+    title: `${latestState.song.title} - ${latestState.song.artist || ''}`
+  });
+});
+
+addCurrentPptProgramButton.addEventListener('click', () => {
+  if (!latestState?.ppt?.id) return;
+
+  addProgramItem({
+    type: 'ppt',
+    refId: latestState.ppt.id,
+    title: latestState.ppt.filename || 'PPT'
+  });
+});
+
+function addProgramNote() {
+  const title = programNoteInput.value.trim();
+  if (!title) return;
+
+  addProgramItem({
+    type: 'note',
+    title
+  });
+  programNoteInput.value = '';
+}
+
+addProgramNoteButton.addEventListener('click', addProgramNote);
+
+programNoteInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  addProgramNote();
+});
+
+applyProgramItemButton.addEventListener('click', () => {
+  if (!selectedProgramItemId) return;
+
+  socket.emit('control:applyProgramItem', {
+    programItemId: selectedProgramItemId
+  });
+});
+
+deleteProgramItemButton.addEventListener('click', () => {
+  if (!selectedProgramItemId || !confirm('선택한 순서표 항목을 삭제할까요?')) return;
+
+  socket.emit('control:deleteProgramItem', {
+    programItemId: selectedProgramItemId
+  }, (response) => {
+    if (!response?.ok) {
+      alert(response?.message || '순서표 항목을 삭제하지 못했습니다.');
+    }
+  });
 });
 
 songSelect.addEventListener('change', () => {
@@ -487,6 +840,10 @@ nextButton.addEventListener('click', () => {
   socket.emit('control:next');
 });
 
+undoButton.addEventListener('click', () => {
+  socket.emit('control:undo');
+});
+
 blankOnButton.addEventListener('click', () => {
   socket.emit('control:blank', {
     blank: true
@@ -497,6 +854,32 @@ blankOffButton.addEventListener('click', () => {
   socket.emit('control:blank', {
     blank: false
   });
+});
+
+function setEmergencyMessage(message) {
+  socket.emit('control:setEmergencyMessage', {
+    message
+  });
+}
+
+emergencyPresetButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    setEmergencyMessage(button.dataset.message || button.textContent || '');
+  });
+});
+
+sendEmergencyMessageButton.addEventListener('click', () => {
+  setEmergencyMessage(emergencyMessageInput.value);
+});
+
+emergencyMessageInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  setEmergencyMessage(emergencyMessageInput.value);
+});
+
+clearEmergencyMessageButton.addEventListener('click', () => {
+  setEmergencyMessage('');
 });
 
 lyricsModeButton.addEventListener('click', () => {
@@ -765,6 +1148,12 @@ pptInput.addEventListener('change', async (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) {
+    return;
+  }
+
+  if (event.key === 'Tab') {
+    event.preventDefault();
+    moveProgramStep(event.shiftKey ? -1 : 1);
     return;
   }
 
