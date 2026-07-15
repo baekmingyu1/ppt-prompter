@@ -94,7 +94,8 @@ body {
   white-space: nowrap;
 }
 
-.ppt-slide {
+.ppt-slide,
+.video-player {
   position: absolute;
   top: var(--singer-ppt-y);
   left: 50%;

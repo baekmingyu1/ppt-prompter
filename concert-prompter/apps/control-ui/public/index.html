@@ -94,6 +94,7 @@
           <div id="audienceLivePreview" class="audience-live-preview">
             <div id="audiencePreviewLyric" class="audience-preview-lyric">-</div>
             <img id="audiencePreviewPpt" class="audience-preview-ppt" alt="Audience PPT preview" hidden />
+            <video id="audiencePreviewVideo" class="audience-preview-video" muted playsinline hidden></video>
           </div>
         </section>
 
@@ -130,6 +131,26 @@
             <button id="prevPptButton" type="button">이전 슬라이드</button>
             <button id="nextPptButton" type="button">다음 슬라이드</button>
           </div>
+        </section>
+
+        <section class="panel video-control-panel">
+          <div class="section-header">
+            <h2>영상 제어</h2>
+            <span id="videoStatus" class="save-status">영상 없음</span>
+          </div>
+
+          <label>
+            영상 업로드
+            <input id="videoInput" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v" />
+            <div class="hint">MP4/WebM/MOV/M4V 파일을 저장하고 관객/가사용 화면에서 스트리밍 재생합니다.</div>
+          </label>
+
+          <label>
+            저장된 영상 선택
+            <select id="videoSelect"></select>
+          </label>
+
+          <button id="deleteVideoButton" class="small-button danger" type="button">영상 삭제</button>
         </section>
 
         <section class="panel">
@@ -300,6 +321,7 @@
           <div class="program-actions">
             <button id="addCurrentSongProgramButton" class="small-button" type="button">현재 곡 추가</button>
             <button id="addCurrentPptProgramButton" class="small-button" type="button">현재 PPT 추가</button>
+            <button id="addCurrentVideoProgramButton" class="small-button" type="button">현재 영상 추가</button>
           </div>
 
           <div class="program-note-form">

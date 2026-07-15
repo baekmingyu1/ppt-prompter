@@ -4,6 +4,7 @@ const LYRICS_SERVICE_URL = PROMPTER_CONFIG.lyricsServiceUrl || '';
 const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 const lyric = document.getElementById('lyric');
 const pptSlide = document.getElementById('pptSlide');
+const videoPlayer = document.getElementById('videoPlayer');
 const lyricMeasure = document.createElement('div');
 let audienceFontSizeVw = 6;
 let latestPayload = null;
@@ -83,6 +84,25 @@ function applyBackground(settings = {}) {
   }
 }
 
+function clearVideoPlayer() {
+  videoPlayer.hidden = true;
+  videoPlayer.pause();
+  videoPlayer.removeAttribute('src');
+  videoPlayer.load();
+}
+
+function playVideo(url) {
+  const nextUrl = getAssetUrl(url);
+  videoPlayer.hidden = false;
+  videoPlayer.muted = false;
+
+  if (videoPlayer.getAttribute('src') !== nextUrl) {
+    videoPlayer.src = nextUrl;
+  }
+
+  videoPlayer.play().catch(() => {});
+}
+
 function render(payload) {
   latestPayload = payload;
   applyDisplaySettings(payload.displaySettings);
@@ -92,6 +112,7 @@ function render(payload) {
     lyric.hidden = false;
     pptSlide.hidden = true;
     pptSlide.removeAttribute('src');
+    clearVideoPlayer();
     lyric.textContent = '';
     return;
   }
@@ -100,12 +121,22 @@ function render(payload) {
     lyric.hidden = true;
     pptSlide.hidden = false;
     pptSlide.src = getAssetUrl(payload.ppt?.currentSlide?.url);
+    clearVideoPlayer();
+    return;
+  }
+
+  if (payload.viewMode === 'video' && payload.video?.url) {
+    lyric.hidden = true;
+    pptSlide.hidden = true;
+    pptSlide.removeAttribute('src');
+    playVideo(payload.video.url);
     return;
   }
 
   lyric.hidden = false;
   pptSlide.hidden = true;
   pptSlide.removeAttribute('src');
+  clearVideoPlayer();
 
   lyric.textContent = payload.currentLines?.length ? payload.currentLines.join('\n') : '';
   fitLyricsToSongWidth();

@@ -16,6 +16,7 @@ const audiencePreviewStatus = document.getElementById('audiencePreviewStatus');
 const audienceLivePreview = document.getElementById('audienceLivePreview');
 const audiencePreviewLyric = document.getElementById('audiencePreviewLyric');
 const audiencePreviewPpt = document.getElementById('audiencePreviewPpt');
+const audiencePreviewVideo = document.getElementById('audiencePreviewVideo');
 const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
 const undoButton = document.getElementById('undoButton');
@@ -30,6 +31,10 @@ const pptInput = document.getElementById('pptInput');
 const pptSelect = document.getElementById('pptSelect');
 const deletePptButton = document.getElementById('deletePptButton');
 const pptStatus = document.getElementById('pptStatus');
+const videoInput = document.getElementById('videoInput');
+const videoSelect = document.getElementById('videoSelect');
+const deleteVideoButton = document.getElementById('deleteVideoButton');
+const videoStatus = document.getElementById('videoStatus');
 const lyricsModeButton = document.getElementById('lyricsModeButton');
 const pptModeButton = document.getElementById('pptModeButton');
 const prevPptButton = document.getElementById('prevPptButton');
@@ -83,6 +88,7 @@ const singerLink = document.getElementById('singerLink');
 const programStatus = document.getElementById('programStatus');
 const addCurrentSongProgramButton = document.getElementById('addCurrentSongProgramButton');
 const addCurrentPptProgramButton = document.getElementById('addCurrentPptProgramButton');
+const addCurrentVideoProgramButton = document.getElementById('addCurrentVideoProgramButton');
 const programNoteInput = document.getElementById('programNoteInput');
 const addProgramNoteButton = document.getElementById('addProgramNoteButton');
 const applyProgramItemButton = document.getElementById('applyProgramItemButton');
@@ -188,6 +194,7 @@ function renderSongs(payload) {
 function getProgramTypeLabel(type) {
   if (type === 'song') return '곡';
   if (type === 'ppt') return 'PPT';
+  if (type === 'video') return '영상';
   return '메모';
 }
 
@@ -312,6 +319,7 @@ function renderProgram(payload, shouldAutoScroll = true) {
   prevProgramItemButton.disabled = baseIndex <= 0;
   nextProgramItemButton.disabled = baseIndex === -1 || baseIndex >= items.length - 1;
   addCurrentPptProgramButton.disabled = !(payload.ppt?.id);
+  addCurrentVideoProgramButton.disabled = !(payload.video?.id);
 
   prevProgramItemButton.onclick = () => {
     moveProgramStep(-1);
@@ -545,6 +553,37 @@ function renderPptControl(payload) {
   nextPptButton.disabled = !hasPpt || Number(ppt.slideIndex || 0) >= ppt.slides.length - 1;
 }
 
+function renderVideoControl(payload) {
+  const video = payload.video || {};
+  const hasVideo = Boolean(video.id && video.url);
+  const videoLibrary = Array.isArray(video.library) ? video.library : [];
+
+  if (videoSelect) {
+    videoSelect.innerHTML = '';
+
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = '저장된 영상 없음';
+    videoSelect.appendChild(emptyOption);
+
+    videoLibrary.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.filename || '영상';
+      videoSelect.appendChild(option);
+    });
+
+    videoSelect.value = video.id || '';
+    videoSelect.disabled = videoLibrary.length === 0;
+  }
+
+  if (deleteVideoButton) {
+    deleteVideoButton.disabled = !video.id || videoLibrary.length === 0;
+  }
+
+  videoStatus.textContent = hasVideo ? (video.filename || '영상 선택됨') : '영상 없음';
+}
+
 function renderBlankControl(payload) {
   const isBlank = Boolean(payload.state.blank);
   blankOnButton.classList.toggle('is-selected', isBlank);
@@ -579,16 +618,20 @@ function renderAudiencePreview(payload) {
   const settings = payload.state.displaySettings?.audience || {};
   const isBlank = Boolean(payload.state.blank);
   const isPptMode = payload.viewMode === 'ppt' && payload.ppt?.currentSlide;
+  const isVideoMode = payload.viewMode === 'video' && payload.video?.url;
   const backgroundImage = settings.backgroundImage ? `url("${settings.backgroundImage}")` : '';
 
   audienceLivePreview.classList.toggle('is-blank', isBlank);
   audienceLivePreview.style.backgroundImage = isBlank ? '' : backgroundImage;
-  audiencePreviewLyric.hidden = isBlank || isPptMode;
+  audiencePreviewLyric.hidden = isBlank || isPptMode || isVideoMode;
   audiencePreviewPpt.hidden = isBlank || !isPptMode;
+  audiencePreviewVideo.hidden = isBlank || !isVideoMode;
 
   if (isBlank) {
     audiencePreviewStatus.textContent = '빈 화면';
     audiencePreviewPpt.removeAttribute('src');
+    audiencePreviewVideo.removeAttribute('src');
+    audiencePreviewVideo.load();
     audiencePreviewLyric.textContent = '';
     return;
   }
@@ -596,12 +639,25 @@ function renderAudiencePreview(payload) {
   if (isPptMode) {
     audiencePreviewStatus.textContent = 'PPT';
     audiencePreviewPpt.src = getAssetUrl(payload.ppt.currentSlide.url);
+    audiencePreviewVideo.removeAttribute('src');
+    audiencePreviewVideo.load();
+    audiencePreviewLyric.textContent = '';
+    return;
+  }
+
+  if (isVideoMode) {
+    audiencePreviewStatus.textContent = '영상';
+    audiencePreviewPpt.removeAttribute('src');
+    audiencePreviewVideo.src = getAssetUrl(payload.video.url);
+    audiencePreviewVideo.play().catch(() => {});
     audiencePreviewLyric.textContent = '';
     return;
   }
 
   audiencePreviewStatus.textContent = payload.state.emergencyMessage ? '긴급 문구' : '가사';
   audiencePreviewPpt.removeAttribute('src');
+  audiencePreviewVideo.removeAttribute('src');
+  audiencePreviewVideo.load();
   audiencePreviewLyric.textContent = getLinesText(payload.currentLines) || '-';
   audiencePreviewLyric.style.color = settings.fontColor || '#fff';
   audiencePreviewLyric.style.fontWeight = String(settings.fontWeight || 800);
@@ -615,7 +671,8 @@ function render(payload) {
     payload.state?.lineIndex ?? '',
     payload.program?.currentItemId || '',
     payload.viewMode || '',
-    payload.ppt?.slideIndex ?? ''
+    payload.ppt?.slideIndex ?? '',
+    payload.video?.id || ''
   ].join('|');
   const shouldAutoScroll = nextAutoScrollKey !== lastAutoScrollKey;
   lastAutoScrollKey = nextAutoScrollKey;
@@ -630,6 +687,7 @@ function render(payload) {
   undoButton.disabled = !payload.canUndo;
   renderSingerControl(payload);
   renderPptControl(payload);
+  renderVideoControl(payload);
   renderBlankControl(payload);
   renderEmergencyControl(payload);
   renderScreenConnections(payload);
@@ -756,6 +814,16 @@ addCurrentPptProgramButton.addEventListener('click', () => {
     type: 'ppt',
     refId: latestState.ppt.id,
     title: latestState.ppt.filename || 'PPT'
+  });
+});
+
+addCurrentVideoProgramButton.addEventListener('click', () => {
+  if (!latestState?.video?.id) return;
+
+  addProgramItem({
+    type: 'video',
+    refId: latestState.video.id,
+    title: latestState.video.filename || '영상'
   });
 });
 
@@ -925,6 +993,42 @@ if (deletePptButton) {
     }, (response) => {
       if (!response?.ok) {
         alert(response?.message || 'PPT 삭제 실패');
+      }
+    });
+  });
+}
+
+if (videoSelect) {
+  videoSelect.addEventListener('change', () => {
+    if (!videoSelect.value) {
+      return;
+    }
+
+    socket.emit('control:selectVideo', {
+      videoId: videoSelect.value
+    });
+  });
+}
+
+if (deleteVideoButton) {
+  deleteVideoButton.addEventListener('click', () => {
+    const videoId = latestState?.video?.id || videoSelect?.value || '';
+    const filename = latestState?.video?.filename || '선택한 영상';
+
+    if (!videoId) {
+      return;
+    }
+
+    if (!confirm(`"${filename}" 영상을 삭제할까요?`)) {
+      return;
+    }
+
+    deleteVideoButton.disabled = true;
+    socket.emit('control:deleteVideo', {
+      videoId
+    }, (response) => {
+      if (!response?.ok) {
+        alert(response?.message || '영상 삭제 실패');
       }
     });
   });
@@ -1143,6 +1247,45 @@ pptInput.addEventListener('change', async (event) => {
     alert('PPT 업로드 중 오류가 발생했습니다.');
     pptStatus.textContent = 'PPT 업로드 실패';
     pptInput.value = '';
+  }
+});
+
+videoInput.addEventListener('change', async (event) => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!/\.(mp4|webm|mov|m4v)$/i.test(file.name)) {
+    alert('MP4, WebM, MOV, M4V 영상 파일만 업로드할 수 있습니다.');
+    videoInput.value = '';
+    return;
+  }
+
+  videoStatus.textContent = '영상 업로드 중';
+
+  try {
+    const resp = await fetch(`${LYRICS_SERVICE_URL}/api/control/video/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Filename': encodeURIComponent(file.name)
+      },
+      body: file
+    });
+
+    const json = await resp.json();
+    if (!json.ok) {
+      alert(json.message || '영상 업로드 실패');
+      videoStatus.textContent = '영상 업로드 실패';
+      videoInput.value = '';
+      return;
+    }
+
+    videoStatus.textContent = '영상 업로드 완료';
+    videoInput.value = '';
+  } catch (err) {
+    alert('영상 업로드 중 오류가 발생했습니다.');
+    videoStatus.textContent = '영상 업로드 실패';
+    videoInput.value = '';
   }
 });
 

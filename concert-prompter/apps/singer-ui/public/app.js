@@ -6,6 +6,7 @@ const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 const currentLyric = document.getElementById('currentLyric');
 const nextLyric = document.getElementById('nextLyric');
 const pptSlide = document.getElementById('pptSlide');
+const videoPlayer = document.getElementById('videoPlayer');
 const lyricSections = Array.from(document.querySelectorAll('.current-section, .next-section'));
 const currentLyricMeasure = document.createElement('div');
 const nextLyricMeasure = document.createElement('div');
@@ -115,6 +116,25 @@ function fitSingerLyricsToWidth() {
   });
 }
 
+function clearVideoPlayer() {
+  videoPlayer.hidden = true;
+  videoPlayer.pause();
+  videoPlayer.removeAttribute('src');
+  videoPlayer.load();
+}
+
+function playVideo(url) {
+  const nextUrl = getAssetUrl(url);
+  videoPlayer.hidden = false;
+  videoPlayer.muted = false;
+
+  if (videoPlayer.getAttribute('src') !== nextUrl) {
+    videoPlayer.src = nextUrl;
+  }
+
+  videoPlayer.play().catch(() => {});
+}
+
 function render(payload) {
   latestPayload = payload;
   applyDisplaySettings(payload.displaySettings);
@@ -125,6 +145,7 @@ function render(payload) {
     });
     pptSlide.hidden = true;
     pptSlide.removeAttribute('src');
+    clearVideoPlayer();
     currentLyric.textContent = '';
     nextLyric.textContent = '';
     return;
@@ -136,6 +157,17 @@ function render(payload) {
     });
     pptSlide.hidden = false;
     pptSlide.src = getAssetUrl(payload.ppt?.currentSlide?.url);
+    clearVideoPlayer();
+    return;
+  }
+
+  if (payload.viewMode === 'video' && payload.video?.url && !payload.separateControlEnabled) {
+    lyricSections.forEach((section) => {
+      section.hidden = true;
+    });
+    pptSlide.hidden = true;
+    pptSlide.removeAttribute('src');
+    playVideo(payload.video.url);
     return;
   }
 
@@ -144,6 +176,7 @@ function render(payload) {
   });
   pptSlide.hidden = true;
   pptSlide.removeAttribute('src');
+  clearVideoPlayer();
 
   currentLyric.textContent = payload.currentLines?.length ? payload.currentLines.join('\n') : '';
   nextLyric.textContent = payload.nextLines?.length ? payload.nextLines.join('\n') : '';

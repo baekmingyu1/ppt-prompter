@@ -20,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SONGS_PATH = process.env.SONGS_PATH || path.join(__dirname, 'data', 'songs.json');
 const PPTS_PATH = process.env.PPTS_PATH || path.join(__dirname, 'data', 'ppts.json');
+const VIDEOS_PATH = process.env.VIDEOS_PATH || path.join(__dirname, 'data', 'videos.json');
 const PROGRAM_PATH = process.env.PROGRAM_PATH || path.join(__dirname, 'data', 'program.json');
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const CONTROL_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'control-ui', 'public');
@@ -27,9 +28,12 @@ const AUDIENCE_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'audience-ui', 'public'
 const SINGER_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'singer-ui', 'public');
 const UPLOADS_PATH = path.join(__dirname, 'uploads');
 const PPT_UPLOADS_PATH = path.join(UPLOADS_PATH, 'ppt');
+const VIDEO_UPLOADS_PATH = path.join(UPLOADS_PATH, 'video');
 const MAX_PPT_UPLOAD_MB = getPositiveNumberEnv('MAX_PPT_UPLOAD_MB', 50);
 const MAX_PPT_UPLOAD_BYTES = MAX_PPT_UPLOAD_MB * 1024 * 1024;
-const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || `${Math.ceil(MAX_PPT_UPLOAD_MB * 1.4)}mb`;
+const MAX_VIDEO_UPLOAD_MB = getPositiveNumberEnv('MAX_VIDEO_UPLOAD_MB', 500);
+const MAX_VIDEO_UPLOAD_BYTES = MAX_VIDEO_UPLOAD_MB * 1024 * 1024;
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || `${Math.ceil(Math.max(MAX_PPT_UPLOAD_MB, MAX_VIDEO_UPLOAD_MB) * 1.4)}mb`;
 const MAX_BACKGROUND_IMAGE_MB = getPositiveNumberEnv('MAX_BACKGROUND_IMAGE_MB', 10);
 const MAX_BACKGROUND_IMAGE_BYTES = MAX_BACKGROUND_IMAGE_MB * 1024 * 1024;
 const SOCKET_MAX_BUFFER_MB = getPositiveNumberEnv('SOCKET_MAX_BUFFER_MB', 20);
@@ -136,6 +140,7 @@ const DEFAULT_DISPLAY_SETTINGS = {
 
 let songs = [];
 let ppts = [];
+let videos = [];
 let programItems = [];
 let undoStack = [];
 let state = {
@@ -148,6 +153,12 @@ let state = {
     filename: '',
     slideIndex: 0,
     slides: []
+  },
+  video: {
+    id: '',
+    filename: '',
+    url: '',
+    contentType: ''
   },
   singerControl: {
     enabled: false,
@@ -200,6 +211,28 @@ async function loadPpts() {
   }
 }
 
+async function loadVideos() {
+  try {
+    const raw = await fs.readFile(VIDEOS_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    videos = Array.isArray(parsed) ? parsed.map(normalizeVideoEntry).filter(Boolean) : [];
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+
+    videos = [];
+    await saveVideos();
+  }
+
+  if (videos.length > 0 && !state.video.id) {
+    setVideoById(videos[0].id, {
+      switchToVideoMode: false,
+      skipUndo: true
+    });
+  }
+}
+
 async function loadProgram() {
   try {
     const raw = await fs.readFile(PROGRAM_PATH, 'utf-8');
@@ -224,6 +257,13 @@ async function savePpts() {
     recursive: true
   });
   await fs.writeFile(PPTS_PATH, `${JSON.stringify(ppts, null, 2)}\n`, 'utf-8');
+}
+
+async function saveVideos() {
+  await fs.mkdir(path.dirname(VIDEOS_PATH), {
+    recursive: true
+  });
+  await fs.writeFile(VIDEOS_PATH, `${JSON.stringify(videos, null, 2)}\n`, 'utf-8');
 }
 
 async function saveProgram() {
@@ -313,7 +353,7 @@ function createProgramItemId() {
 function normalizeProgramItem(item) {
   if (!item || typeof item !== 'object') return null;
 
-  const type = ['song', 'ppt', 'note'].includes(item.type) ? item.type : 'note';
+  const type = ['song', 'ppt', 'video', 'note'].includes(item.type) ? item.type : 'note';
   const title = String(item.title || '').trim();
   const refId = String(item.refId || '').trim();
 
@@ -329,14 +369,36 @@ function normalizeProgramItem(item) {
   };
 }
 
+function normalizeVideoEntry(item) {
+  if (!item || typeof item !== 'object') return null;
+
+  const id = String(item.id || '').trim();
+  const filename = String(item.filename || '').trim();
+  const url = String(item.url || '').trim();
+
+  if (!id || !filename || !url) return null;
+
+  return {
+    id,
+    filename,
+    url,
+    contentType: String(item.contentType || 'video/mp4'),
+    createdAt: item.createdAt || new Date().toISOString()
+  };
+}
+
 function getProgramPayload() {
   return programItems.map((item) => {
     const song = item.type === 'song' ? songs.find((entry) => entry.id === item.refId) : null;
     const ppt = item.type === 'ppt' ? ppts.find((entry) => entry.id === item.refId) : null;
-    const missing = (item.type === 'song' && !song) || (item.type === 'ppt' && !ppt);
+    const video = item.type === 'video' ? videos.find((entry) => entry.id === item.refId) : null;
+    const missing = (item.type === 'song' && !song)
+      || (item.type === 'ppt' && !ppt)
+      || (item.type === 'video' && !video);
     const title = item.title
       || (song ? `${song.title} - ${song.artist || ''}` : '')
       || (ppt ? ppt.filename : '')
+      || (video ? video.filename : '')
       || '메모';
 
     return {
@@ -346,7 +408,9 @@ function getProgramPayload() {
       lyrics: song?.lyrics || [],
       artist: song?.artist || '',
       slides: Array.isArray(ppt?.slides) ? ppt.slides : [],
-      filename: ppt?.filename || ''
+      filename: ppt?.filename || video?.filename || '',
+      url: video?.url || '',
+      contentType: video?.contentType || ''
     };
   });
 }
@@ -400,8 +464,13 @@ function getCurrentPptSlide() {
   return state.ppt.slides[state.ppt.slideIndex] || null;
 }
 
+function getCurrentVideo() {
+  return state.video.id ? state.video : null;
+}
+
 function normalizeViewMode(mode) {
-  return mode === 'ppt' ? 'ppt' : 'lyrics';
+  if (mode === 'ppt' || mode === 'video') return mode;
+  return 'lyrics';
 }
 
 function clampPptSlideIndex(index) {
@@ -415,6 +484,16 @@ function getPptLibraryPayload() {
     filename: ppt.filename,
     totalSlides: Array.isArray(ppt.slides) ? ppt.slides.length : 0,
     createdAt: ppt.createdAt
+  }));
+}
+
+function getVideoLibraryPayload() {
+  return videos.map((video) => ({
+    id: video.id,
+    filename: video.filename,
+    url: video.url,
+    contentType: video.contentType,
+    createdAt: video.createdAt
   }));
 }
 
@@ -442,6 +521,31 @@ function setPptById(pptId, options = {}) {
   touchState();
 }
 
+function setVideoById(videoId, options = {}) {
+  const video = videos.find((item) => item.id === videoId);
+
+  if (!video) {
+    throw new Error(`Unknown videoId: ${videoId}`);
+  }
+
+  if (!options.skipUndo) {
+    pushUndoState();
+  }
+
+  state.video = {
+    id: video.id,
+    filename: video.filename,
+    url: video.url,
+    contentType: video.contentType
+  };
+
+  if (options.switchToVideoMode !== false) {
+    state.viewMode = 'video';
+  }
+
+  touchState();
+}
+
 function getPptUploadDir(pptId) {
   const uploadDir = path.resolve(PPT_UPLOADS_PATH, String(pptId || ''));
   const uploadsRoot = path.resolve(PPT_UPLOADS_PATH);
@@ -451,6 +555,17 @@ function getPptUploadDir(pptId) {
   }
 
   throw new Error('Invalid pptId.');
+}
+
+function getVideoUploadDir(videoId) {
+  const uploadDir = path.resolve(VIDEO_UPLOADS_PATH, String(videoId || ''));
+  const uploadsRoot = path.resolve(VIDEO_UPLOADS_PATH);
+
+  if (uploadDir !== uploadsRoot && uploadDir.startsWith(`${uploadsRoot}${path.sep}`)) {
+    return uploadDir;
+  }
+
+  throw new Error('Invalid videoId.');
 }
 
 function getDataUrlParts(dataUrl) {
@@ -482,6 +597,22 @@ function getSafePptExtension(filename) {
   }
 
   return extension;
+}
+
+function getSafeVideoExtension(filename) {
+  const extension = path.extname(String(filename || '')).toLowerCase();
+
+  if (!['.mp4', '.webm', '.mov', '.m4v'].includes(extension)) {
+    throw new Error('MP4, WebM, MOV, M4V 영상 파일만 업로드할 수 있습니다.');
+  }
+
+  return extension;
+}
+
+function getVideoContentType(extension) {
+  if (extension === '.webm') return 'video/webm';
+  if (extension === '.mov') return 'video/quicktime';
+  return 'video/mp4';
 }
 
 async function convertPptToImages(inputPath, outputDir) {
@@ -568,6 +699,47 @@ async function uploadPpt({ filename, fileBuffer }) {
   state.viewMode = 'ppt';
   touchState();
   await savePpts();
+}
+
+async function uploadVideo({ filename, fileBuffer }) {
+  const extension = getSafeVideoExtension(filename);
+  const videoBuffer = Buffer.isBuffer(fileBuffer) ? fileBuffer : Buffer.from(fileBuffer || []);
+
+  if (videoBuffer.byteLength === 0) {
+    throw new Error('영상 파일이 비어 있습니다.');
+  }
+
+  if (videoBuffer.byteLength > MAX_VIDEO_UPLOAD_BYTES) {
+    throw new Error(`영상 파일은 ${MAX_VIDEO_UPLOAD_MB}MB 이하만 업로드할 수 있습니다.`);
+  }
+
+  const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const uploadDir = path.join(VIDEO_UPLOADS_PATH, uploadId);
+  const safeFilename = `source${extension}`;
+  const inputPath = path.join(uploadDir, safeFilename);
+  const videoEntry = {
+    id: uploadId,
+    filename: String(filename || `video${extension}`),
+    url: `/uploads/video/${uploadId}/${safeFilename}`,
+    contentType: getVideoContentType(extension),
+    createdAt: new Date().toISOString()
+  };
+
+  await fs.mkdir(uploadDir, {
+    recursive: true
+  });
+  await fs.writeFile(inputPath, videoBuffer);
+
+  videos.push(videoEntry);
+  state.video = {
+    id: videoEntry.id,
+    filename: videoEntry.filename,
+    url: videoEntry.url,
+    contentType: videoEntry.contentType
+  };
+  state.viewMode = 'video';
+  touchState();
+  await saveVideos();
 }
 
 function getSingerMessageLines() {
@@ -831,6 +1003,11 @@ function buildControlPayload() {
       currentSlide: getCurrentPptSlide(),
       library: getPptLibraryPayload()
     },
+    video: {
+      ...state.video,
+      currentVideo: getCurrentVideo(),
+      library: getVideoLibraryPayload()
+    },
     singerControl: {
       enabled: state.singerControl.enabled,
       lineIndex: singerLineIndex,
@@ -864,6 +1041,10 @@ function buildAudiencePayload() {
       slideIndex: state.ppt.slideIndex,
       totalSlides: state.ppt.slides.length,
       currentSlide: getCurrentPptSlide()
+    },
+    video: {
+      ...state.video,
+      currentVideo: getCurrentVideo()
     },
     displaySettings: {
       ...state.displaySettings.audience,
@@ -903,6 +1084,10 @@ function buildSingerPayload() {
       slideIndex: state.ppt.slideIndex,
       totalSlides: state.ppt.slides.length,
       currentSlide: getCurrentPptSlide()
+    },
+    video: {
+      ...state.video,
+      currentVideo: getCurrentVideo()
     },
     separateControlEnabled: state.singerControl.enabled,
     displaySettings: {
@@ -1148,8 +1333,50 @@ async function deletePpt(pptId) {
   await savePpts();
 }
 
+async function deleteVideo(videoId) {
+  const videoIndex = videos.findIndex((item) => item.id === videoId);
+
+  if (videoIndex === -1) {
+    throw new Error(`Unknown videoId: ${videoId}`);
+  }
+
+  const wasCurrentVideo = state.video.id === videoId;
+  videos.splice(videoIndex, 1);
+
+  try {
+    await fs.rm(getVideoUploadDir(videoId), {
+      recursive: true,
+      force: true
+    });
+  } catch {
+    // The index is the source of truth; missing files should not block cleanup.
+  }
+
+  if (wasCurrentVideo) {
+    if (videos.length > 0) {
+      const nextVideo = videos[Math.min(videoIndex, videos.length - 1)];
+      setVideoById(nextVideo.id, {
+        switchToVideoMode: state.viewMode === 'video'
+      });
+    } else {
+      state.video = {
+        id: '',
+        filename: '',
+        url: '',
+        contentType: ''
+      };
+      state.viewMode = state.viewMode === 'video' ? 'lyrics' : state.viewMode;
+      touchState();
+    }
+  } else {
+    touchState();
+  }
+
+  await saveVideos();
+}
+
 async function addProgramItem({ type, refId, title }) {
-  const normalizedType = ['song', 'ppt', 'note'].includes(type) ? type : 'note';
+  const normalizedType = ['song', 'ppt', 'video', 'note'].includes(type) ? type : 'note';
   const itemTitle = String(title || '').trim();
   const itemRefId = String(refId || '').trim();
 
@@ -1161,17 +1388,22 @@ async function addProgramItem({ type, refId, title }) {
     throw new Error('Unknown pptId.');
   }
 
+  if (normalizedType === 'video' && !videos.some((video) => video.id === itemRefId)) {
+    throw new Error('Unknown videoId.');
+  }
+
   if (normalizedType === 'note' && !itemTitle) {
     throw new Error('메모 내용을 입력해 주세요.');
   }
 
   const song = normalizedType === 'song' ? songs.find((entry) => entry.id === itemRefId) : null;
   const ppt = normalizedType === 'ppt' ? ppts.find((entry) => entry.id === itemRefId) : null;
+  const video = normalizedType === 'video' ? videos.find((entry) => entry.id === itemRefId) : null;
   const nextItem = {
     id: createProgramItemId(),
     type: normalizedType,
     refId: normalizedType === 'note' ? '' : itemRefId,
-    title: itemTitle || (song ? `${song.title} - ${song.artist || ''}` : ppt?.filename || ''),
+    title: itemTitle || (song ? `${song.title} - ${song.artist || ''}` : ppt?.filename || video?.filename || ''),
     createdAt: new Date().toISOString()
   };
 
@@ -1266,6 +1498,13 @@ function applyProgramItem(programItemId, options = {}) {
     return;
   }
 
+  if (item.type === 'video') {
+    setVideoById(item.refId, {
+      skipUndo: true
+    });
+    return;
+  }
+
   touchState();
 }
 
@@ -1275,6 +1514,7 @@ function buildBackupPayload() {
     exportedAt: new Date().toISOString(),
     songs,
     ppts,
+    videos,
     programItems,
     displaySettings: state.displaySettings
   };
@@ -1299,6 +1539,9 @@ async function restoreBackup(payload) {
       : ['가사를 입력해 주세요']
   }));
   ppts = Array.isArray(payload.ppts) ? payload.ppts : [];
+  videos = Array.isArray(payload.videos)
+    ? payload.videos.map(normalizeVideoEntry).filter(Boolean)
+    : [];
   programItems = Array.isArray(payload.programItems)
     ? payload.programItems.map(normalizeProgramItem).filter(Boolean)
     : [];
@@ -1322,7 +1565,7 @@ async function restoreBackup(payload) {
       skipUndo: true
     });
   } else {
-    state.ppt = {
+  state.ppt = {
       id: '',
       filename: '',
       slideIndex: 0,
@@ -1330,8 +1573,23 @@ async function restoreBackup(payload) {
     };
   }
 
+  if (videos.length > 0) {
+    setVideoById(videos[0].id, {
+      switchToVideoMode: false,
+      skipUndo: true
+    });
+  } else {
+    state.video = {
+      id: '',
+      filename: '',
+      url: '',
+      contentType: ''
+    };
+  }
+
   await saveSongs();
   await savePpts();
+  await saveVideos();
   await saveProgram();
   touchState();
 }
@@ -1603,6 +1861,66 @@ app.post('/api/control/ppt/slide', (req, res) => {
   });
 });
 
+app.post('/api/control/video/upload', express.raw({
+  type: 'application/octet-stream',
+  limit: `${MAX_VIDEO_UPLOAD_MB}mb`
+}), async (req, res) => {
+  try {
+    const encodedFilename = String(req.headers['x-filename'] || '');
+    const filename = encodedFilename ? decodeURIComponent(encodedFilename) : '';
+
+    await uploadVideo({
+      filename,
+      fileBuffer: req.body
+    });
+    emitState();
+
+    res.json({
+      ok: true,
+      video: state.video
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
+app.post('/api/control/video/select', (req, res) => {
+  try {
+    setVideoById(String(req.body.videoId || ''));
+    emitState();
+
+    res.json({
+      ok: true,
+      video: state.video
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
+app.post('/api/control/video/delete', async (req, res) => {
+  try {
+    await deleteVideo(String(req.body.videoId || ''));
+    emitState();
+
+    res.json({
+      ok: true,
+      state
+    });
+  } catch (error) {
+    res.status(400).json({
+      ok: false,
+      message: error.message
+    });
+  }
+});
+
 
 app.post('/api/control/song/update', async (req, res) => {
   try {
@@ -1666,7 +1984,7 @@ app.use((error, req, res, next) => {
   res.status(isPayloadTooLarge ? 413 : 400).json({
     ok: false,
     message: isPayloadTooLarge
-      ? `업로드 파일은 ${MAX_PPT_UPLOAD_MB}MB 이하만 사용할 수 있습니다.`
+      ? `업로드 파일은 PPT ${MAX_PPT_UPLOAD_MB}MB, 영상 ${MAX_VIDEO_UPLOAD_MB}MB 이하만 사용할 수 있습니다.`
       : (error.message || '요청 처리 중 오류가 발생했습니다.')
   });
 });
@@ -1789,6 +2107,42 @@ io.on('connection', (socket) => {
       setPptById(String(pptId || ''));
       emitState();
     } catch (error) {
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:selectVideo', ({ videoId }) => {
+    try {
+      setVideoById(String(videoId || ''));
+      emitState();
+    } catch (error) {
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:deleteVideo', async ({ videoId }, callback) => {
+    try {
+      await deleteVideo(String(videoId || ''));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
       socket.emit('errorMessage', {
         message: error.message
       });
@@ -2047,6 +2401,7 @@ io.on('connection', (socket) => {
 
 await loadSongs();
 await loadPpts();
+await loadVideos();
 await loadProgram();
 
 server.listen(PORT, () => {

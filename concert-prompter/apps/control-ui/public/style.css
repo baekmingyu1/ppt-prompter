@@ -779,10 +779,13 @@ textarea {
   gap: 8px;
 }
 
-.program-actions,
 .program-toolbar,
 .program-sequence-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.program-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .program-note-form {
@@ -1067,7 +1070,8 @@ textarea {
   text-shadow: 0 3px 12px rgba(0, 0, 0, 0.78);
 }
 
-.audience-preview-ppt {
+.audience-preview-ppt,
+.audience-preview-video {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -1078,6 +1082,11 @@ textarea {
 }
 
 .ppt-control-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.video-control-panel {
   display: grid;
   gap: 12px;
 }
