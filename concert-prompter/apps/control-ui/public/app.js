@@ -1169,6 +1169,42 @@ function sendDisplaySettings(settings, target = null) {
   });
 }
 
+async function uploadBinaryFile({
+  file,
+  endpoint,
+  statusElement,
+  processingMessage,
+  successMessage,
+  failureMessage
+}) {
+  statusElement.textContent = processingMessage;
+
+  try {
+    const resp = await fetch(`${LYRICS_SERVICE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Filename': encodeURIComponent(file.name)
+      },
+      body: file
+    });
+
+    const json = await resp.json();
+    if (!json.ok) {
+      alert(json.message || failureMessage);
+      statusElement.textContent = failureMessage;
+      return false;
+    }
+
+    statusElement.textContent = successMessage;
+    return true;
+  } catch (err) {
+    alert(`${failureMessage.replace(/ 실패$/, '')} 중 오류가 발생했습니다.`);
+    statusElement.textContent = failureMessage;
+    return false;
+  }
+}
+
 [fontSizeAudienceInput, fontWeightAudienceInput, fontColorAudienceInput, verticalPositionAudienceInput, pptVerticalPositionAudienceInput].forEach((el) => {
   el.addEventListener('input', () => {
     if (settingsRenderLocked) return;
@@ -1309,33 +1345,15 @@ pptInput.addEventListener('change', async (event) => {
     return;
   }
 
-  pptStatus.textContent = 'PPT 변환 중';
-
-  try {
-    const resp = await fetch(`${LYRICS_SERVICE_URL}/api/control/ppt/upload`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'X-Filename': encodeURIComponent(file.name)
-      },
-      body: file
-    });
-
-    const json = await resp.json();
-    if (!json.ok) {
-      alert(json.message || 'PPT 업로드 실패');
-      pptStatus.textContent = 'PPT 업로드 실패';
-      pptInput.value = '';
-      return;
-    }
-
-    pptStatus.textContent = 'PPT 변환 완료';
-    pptInput.value = '';
-  } catch (err) {
-    alert('PPT 업로드 중 오류가 발생했습니다.');
-    pptStatus.textContent = 'PPT 업로드 실패';
-    pptInput.value = '';
-  }
+  await uploadBinaryFile({
+    file,
+    endpoint: '/api/control/ppt/upload',
+    statusElement: pptStatus,
+    processingMessage: 'PPT 변환 중',
+    successMessage: 'PPT 변환 완료',
+    failureMessage: 'PPT 업로드 실패'
+  });
+  pptInput.value = '';
 });
 
 videoInput.addEventListener('change', async (event) => {
@@ -1348,33 +1366,15 @@ videoInput.addEventListener('change', async (event) => {
     return;
   }
 
-  videoStatus.textContent = '영상 업로드 중';
-
-  try {
-    const resp = await fetch(`${LYRICS_SERVICE_URL}/api/control/video/upload`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'X-Filename': encodeURIComponent(file.name)
-      },
-      body: file
-    });
-
-    const json = await resp.json();
-    if (!json.ok) {
-      alert(json.message || '영상 업로드 실패');
-      videoStatus.textContent = '영상 업로드 실패';
-      videoInput.value = '';
-      return;
-    }
-
-    videoStatus.textContent = '영상 업로드 완료';
-    videoInput.value = '';
-  } catch (err) {
-    alert('영상 업로드 중 오류가 발생했습니다.');
-    videoStatus.textContent = '영상 업로드 실패';
-    videoInput.value = '';
-  }
+  await uploadBinaryFile({
+    file,
+    endpoint: '/api/control/video/upload',
+    statusElement: videoStatus,
+    processingMessage: '영상 업로드 중',
+    successMessage: '영상 업로드 완료',
+    failureMessage: '영상 업로드 실패'
+  });
+  videoInput.value = '';
 });
 
 document.addEventListener('keydown', (event) => {
