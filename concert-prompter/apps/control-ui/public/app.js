@@ -86,6 +86,11 @@ const displaySettingsBody = document.getElementById('displaySettingsBody');
 const audienceLink = document.getElementById('audienceLink');
 const singerLink = document.getElementById('singerLink');
 const programStatus = document.getElementById('programStatus');
+const programSheetSelect = document.getElementById('programSheetSelect');
+const programSheetTitleInput = document.getElementById('programSheetTitleInput');
+const createProgramSheetButton = document.getElementById('createProgramSheetButton');
+const renameProgramSheetButton = document.getElementById('renameProgramSheetButton');
+const deleteProgramSheetButton = document.getElementById('deleteProgramSheetButton');
 const addCurrentSongProgramButton = document.getElementById('addCurrentSongProgramButton');
 const addCurrentPptProgramButton = document.getElementById('addCurrentPptProgramButton');
 const addCurrentVideoProgramButton = document.getElementById('addCurrentVideoProgramButton');
@@ -234,6 +239,9 @@ function scrollElementIntoContainer(element, container) {
 }
 
 function renderProgram(payload, shouldAutoScroll = true) {
+  const sheets = payload.program?.sheets || [];
+  const activeProgramId = payload.program?.activeProgramId || sheets[0]?.id || '';
+  const activeSheet = sheets.find((sheet) => sheet.id === activeProgramId) || sheets[0] || null;
   const items = payload.program?.items || [];
   const currentItemId = payload.program?.currentItemId || '';
 
@@ -241,7 +249,22 @@ function renderProgram(payload, shouldAutoScroll = true) {
     selectedProgramItemId = currentItemId || items[0]?.id || '';
   }
 
-  programStatus.textContent = `${items.length}개`;
+  programStatus.textContent = activeSheet ? `${activeSheet.title} · ${items.length}개` : `${items.length}개`;
+  programSheetSelect.innerHTML = '';
+
+  sheets.forEach((sheet) => {
+    const option = document.createElement('option');
+    option.value = sheet.id;
+    option.textContent = `${sheet.title} (${sheet.itemCount}개)`;
+    programSheetSelect.appendChild(option);
+  });
+
+  programSheetSelect.value = activeProgramId;
+  if (programSheetTitleInput !== document.activeElement) {
+    programSheetTitleInput.value = activeSheet?.title || '';
+  }
+  renameProgramSheetButton.disabled = !activeSheet;
+  deleteProgramSheetButton.disabled = sheets.length <= 1 || !activeSheet;
   programList.innerHTML = '';
 
   items.forEach((item, index) => {
@@ -593,6 +616,10 @@ function renderBlankControl(payload) {
 }
 
 function renderEmergencyControl(payload) {
+  if (!emergencyStatus || !clearEmergencyMessageButton || !emergencyMessageInput) {
+    return;
+  }
+
   const message = String(payload.state.emergencyMessage || '');
   emergencyStatus.textContent = message ? '표시 중' : '꺼짐';
   emergencyStatus.classList.toggle('saved', Boolean(message));
@@ -684,7 +711,9 @@ function render(payload) {
   renderLyricsList(payload, shouldAutoScroll);
   renderDisplaySettings(payload);
 
-  undoButton.disabled = !payload.canUndo;
+  if (undoButton) {
+    undoButton.disabled = !payload.canUndo;
+  }
   renderSingerControl(payload);
   renderPptControl(payload);
   renderVideoControl(payload);
@@ -787,6 +816,57 @@ exportBackupButton.addEventListener('click', exportBackup);
 
 importBackupInput.addEventListener('change', () => {
   restoreBackupFile(importBackupInput.files?.[0]);
+});
+
+function emitProgramSheetEvent(eventName, payload, fallbackMessage) {
+  socket.emit(eventName, payload, (response) => {
+    if (!response?.ok) {
+      alert(response?.message || fallbackMessage);
+    }
+  });
+}
+
+programSheetSelect.addEventListener('change', () => {
+  if (!programSheetSelect.value) return;
+
+  selectedProgramItemId = '';
+  emitProgramSheetEvent('control:selectProgramSheet', {
+    programId: programSheetSelect.value
+  }, '순서표를 선택하지 못했습니다.');
+});
+
+createProgramSheetButton.addEventListener('click', () => {
+  const defaultTitle = `${(latestState?.program?.sheets?.length || 0) + 1}일차`;
+  const title = programSheetTitleInput.value.trim() || defaultTitle;
+
+  selectedProgramItemId = '';
+  emitProgramSheetEvent('control:createProgramSheet', {
+    title
+  }, '순서표를 만들지 못했습니다.');
+});
+
+renameProgramSheetButton.addEventListener('click', () => {
+  const programId = latestState?.program?.activeProgramId || programSheetSelect.value;
+  const title = programSheetTitleInput.value.trim();
+
+  if (!programId || !title) return;
+
+  emitProgramSheetEvent('control:updateProgramSheet', {
+    programId,
+    title
+  }, '순서표 이름을 저장하지 못했습니다.');
+});
+
+deleteProgramSheetButton.addEventListener('click', () => {
+  const programId = latestState?.program?.activeProgramId || programSheetSelect.value;
+  const title = programSheetTitleInput.value.trim() || '선택한 순서표';
+
+  if (!programId || !confirm(`"${title}" 목록을 삭제할까요?`)) return;
+
+  selectedProgramItemId = '';
+  emitProgramSheetEvent('control:deleteProgramSheet', {
+    programId
+  }, '순서표를 삭제하지 못했습니다.');
 });
 
 function addProgramItem(payload) {
@@ -908,9 +988,11 @@ nextButton.addEventListener('click', () => {
   socket.emit('control:next');
 });
 
-undoButton.addEventListener('click', () => {
-  socket.emit('control:undo');
-});
+if (undoButton) {
+  undoButton.addEventListener('click', () => {
+    socket.emit('control:undo');
+  });
+}
 
 blankOnButton.addEventListener('click', () => {
   socket.emit('control:blank', {
@@ -936,19 +1018,25 @@ emergencyPresetButtons.forEach((button) => {
   });
 });
 
-sendEmergencyMessageButton.addEventListener('click', () => {
-  setEmergencyMessage(emergencyMessageInput.value);
-});
+if (sendEmergencyMessageButton && emergencyMessageInput) {
+  sendEmergencyMessageButton.addEventListener('click', () => {
+    setEmergencyMessage(emergencyMessageInput.value);
+  });
+}
 
-emergencyMessageInput.addEventListener('keydown', (event) => {
-  if (event.key !== 'Enter') return;
-  event.preventDefault();
-  setEmergencyMessage(emergencyMessageInput.value);
-});
+if (emergencyMessageInput) {
+  emergencyMessageInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    setEmergencyMessage(emergencyMessageInput.value);
+  });
+}
 
-clearEmergencyMessageButton.addEventListener('click', () => {
-  setEmergencyMessage('');
-});
+if (clearEmergencyMessageButton) {
+  clearEmergencyMessageButton.addEventListener('click', () => {
+    setEmergencyMessage('');
+  });
+}
 
 lyricsModeButton.addEventListener('click', () => {
   socket.emit('control:setViewMode', {

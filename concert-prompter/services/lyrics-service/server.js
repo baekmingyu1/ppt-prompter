@@ -22,6 +22,7 @@ const SONGS_PATH = process.env.SONGS_PATH || path.join(__dirname, 'data', 'songs
 const PPTS_PATH = process.env.PPTS_PATH || path.join(__dirname, 'data', 'ppts.json');
 const VIDEOS_PATH = process.env.VIDEOS_PATH || path.join(__dirname, 'data', 'videos.json');
 const PROGRAM_PATH = process.env.PROGRAM_PATH || path.join(__dirname, 'data', 'program.json');
+const DISPLAY_SETTINGS_PATH = process.env.DISPLAY_SETTINGS_PATH || path.join(__dirname, 'data', 'display-settings.json');
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const CONTROL_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'control-ui', 'public');
 const AUDIENCE_UI_PATH = path.join(PROJECT_ROOT, 'apps', 'audience-ui', 'public');
@@ -141,10 +142,11 @@ const DEFAULT_DISPLAY_SETTINGS = {
 let songs = [];
 let ppts = [];
 let videos = [];
-let programItems = [];
+let programSheets = [];
 let undoStack = [];
 let state = {
   songId: null,
+  programId: '',
   programItemId: '',
   lineIndex: 0,
   viewMode: 'lyrics',
@@ -237,14 +239,31 @@ async function loadProgram() {
   try {
     const raw = await fs.readFile(PROGRAM_PATH, 'utf-8');
     const parsed = JSON.parse(raw);
-    programItems = Array.isArray(parsed) ? parsed.map(normalizeProgramItem).filter(Boolean) : [];
+    const loadedProgram = normalizeProgramStore(parsed);
+    programSheets = loadedProgram.sheets;
+    state.programId = loadedProgram.activeProgramId;
+    await saveProgram();
   } catch (error) {
     if (error.code !== 'ENOENT') {
       throw error;
     }
 
-    programItems = [];
+    programSheets = createDefaultProgramSheets();
+    state.programId = programSheets[0]?.id || '';
     await saveProgram();
+  }
+}
+
+async function loadDisplaySettings() {
+  try {
+    const raw = await fs.readFile(DISPLAY_SETTINGS_PATH, 'utf-8');
+    state.displaySettings = normalizeDisplaySettings(JSON.parse(raw));
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+
+    await saveDisplaySettings();
   }
 }
 
@@ -270,7 +289,17 @@ async function saveProgram() {
   await fs.mkdir(path.dirname(PROGRAM_PATH), {
     recursive: true
   });
-  await fs.writeFile(PROGRAM_PATH, `${JSON.stringify(programItems, null, 2)}\n`, 'utf-8');
+  await fs.writeFile(PROGRAM_PATH, `${JSON.stringify({
+    activeProgramId: state.programId || getActiveProgram()?.id || '',
+    sheets: programSheets
+  }, null, 2)}\n`, 'utf-8');
+}
+
+async function saveDisplaySettings() {
+  await fs.mkdir(path.dirname(DISPLAY_SETTINGS_PATH), {
+    recursive: true
+  });
+  await fs.writeFile(DISPLAY_SETTINGS_PATH, `${JSON.stringify(state.displaySettings, null, 2)}\n`, 'utf-8');
 }
 
 async function reconcilePptLibraryFromUploads() {
@@ -350,6 +379,10 @@ function createProgramItemId() {
   return `program-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function createProgramSheetId() {
+  return `program-sheet-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function normalizeProgramItem(item) {
   if (!item || typeof item !== 'object') return null;
 
@@ -367,6 +400,89 @@ function normalizeProgramItem(item) {
     refId,
     createdAt: item.createdAt || new Date().toISOString()
   };
+}
+
+function normalizeProgramSheet(sheet, fallbackTitle = '예배 순서표') {
+  if (!sheet || typeof sheet !== 'object') return null;
+
+  const title = String(sheet.title || fallbackTitle).trim();
+  const items = Array.isArray(sheet.items)
+    ? sheet.items.map(normalizeProgramItem).filter(Boolean)
+    : [];
+
+  if (!title) return null;
+
+  return {
+    id: String(sheet.id || createProgramSheetId()),
+    title,
+    items,
+    createdAt: sheet.createdAt || new Date().toISOString(),
+    updatedAt: sheet.updatedAt || new Date().toISOString()
+  };
+}
+
+function createDefaultProgramSheets(items = []) {
+  const now = new Date().toISOString();
+  const firstSheet = normalizeProgramSheet({
+    title: '1일차',
+    items,
+    createdAt: now,
+    updatedAt: now
+  }, '1일차');
+  const secondSheet = normalizeProgramSheet({
+    title: '2일차',
+    items: [],
+    createdAt: now,
+    updatedAt: now
+  }, '2일차');
+
+  return [firstSheet, secondSheet].filter(Boolean);
+}
+
+function normalizeProgramStore(payload) {
+  if (Array.isArray(payload)) {
+    const legacyItems = payload.map(normalizeProgramItem).filter(Boolean);
+    const sheets = createDefaultProgramSheets(legacyItems);
+    return {
+      activeProgramId: sheets[0]?.id || '',
+      sheets
+    };
+  }
+
+  const rawSheets = Array.isArray(payload?.sheets) ? payload.sheets : [];
+  let sheets = rawSheets.map((sheet, index) => normalizeProgramSheet(sheet, `${index + 1}일차`)).filter(Boolean);
+
+  if (sheets.length === 0) {
+    sheets = createDefaultProgramSheets();
+  }
+
+  const requestedActiveId = String(payload?.activeProgramId || '').trim();
+  const activeProgramId = sheets.some((sheet) => sheet.id === requestedActiveId)
+    ? requestedActiveId
+    : sheets[0].id;
+
+  return {
+    activeProgramId,
+    sheets
+  };
+}
+
+function getActiveProgram() {
+  if (!programSheets.some((sheet) => sheet.id === state.programId)) {
+    state.programId = programSheets[0]?.id || '';
+  }
+
+  return programSheets.find((sheet) => sheet.id === state.programId) || null;
+}
+
+function getActiveProgramItems() {
+  return getActiveProgram()?.items || [];
+}
+
+function touchProgramSheet(sheet) {
+  if (sheet) {
+    sheet.updatedAt = new Date().toISOString();
+  }
 }
 
 function normalizeVideoEntry(item) {
@@ -388,7 +504,7 @@ function normalizeVideoEntry(item) {
 }
 
 function getProgramPayload() {
-  return programItems.map((item) => {
+  return getActiveProgramItems().map((item) => {
     const song = item.type === 'song' ? songs.find((entry) => entry.id === item.refId) : null;
     const ppt = item.type === 'ppt' ? ppts.find((entry) => entry.id === item.refId) : null;
     const video = item.type === 'video' ? videos.find((entry) => entry.id === item.refId) : null;
@@ -416,7 +532,7 @@ function getProgramPayload() {
 }
 
 function getProgramItemIndex(programItemId) {
-  return programItems.findIndex((item) => item.id === programItemId);
+  return getActiveProgramItems().findIndex((item) => item.id === programItemId);
 }
 
 function getCurrentSong() {
@@ -942,10 +1058,11 @@ function buildDisplaySettingsUpdate(payload = {}) {
   };
 }
 
-function updateDisplaySettings(settings) {
+async function updateDisplaySettings(settings) {
   pushUndoState();
   state.displaySettings = normalizeDisplaySettings(buildDisplaySettingsUpdate(settings));
   touchState();
+  await saveDisplaySettings();
 }
 
 function getEmergencyLines() {
@@ -983,6 +1100,14 @@ function buildControlPayload() {
       totalLines: (item.lyrics || []).length
     })),
     program: {
+      activeProgramId: state.programId,
+      sheets: programSheets.map((sheet) => ({
+        id: sheet.id,
+        title: sheet.title,
+        itemCount: sheet.items.length,
+        createdAt: sheet.createdAt,
+        updatedAt: sheet.updatedAt
+      })),
       currentItemId: state.programItemId,
       items: getProgramPayload()
     },
@@ -1376,6 +1501,11 @@ async function deleteVideo(videoId) {
 }
 
 async function addProgramItem({ type, refId, title }) {
+  const activeProgram = getActiveProgram();
+  if (!activeProgram) {
+    throw new Error('예배 순서표가 없습니다.');
+  }
+
   const normalizedType = ['song', 'ppt', 'video', 'note'].includes(type) ? type : 'note';
   const itemTitle = String(title || '').trim();
   const itemRefId = String(refId || '').trim();
@@ -1407,30 +1537,35 @@ async function addProgramItem({ type, refId, title }) {
     createdAt: new Date().toISOString()
   };
 
-  programItems.push(nextItem);
+  activeProgram.items.push(nextItem);
+  touchProgramSheet(activeProgram);
   await saveProgram();
   touchState();
   return nextItem;
 }
 
 async function deleteProgramItem(programItemId) {
+  const activeProgram = getActiveProgram();
   const itemIndex = getProgramItemIndex(programItemId);
 
   if (itemIndex === -1) {
     throw new Error('Unknown program item.');
   }
 
-  programItems.splice(itemIndex, 1);
+  activeProgram.items.splice(itemIndex, 1);
 
   if (state.programItemId === programItemId) {
     state.programItemId = '';
   }
 
+  touchProgramSheet(activeProgram);
   await saveProgram();
   touchState();
 }
 
 async function moveProgramItem(programItemId, direction) {
+  const activeProgram = getActiveProgram();
+  const programItems = getActiveProgramItems();
   const itemIndex = getProgramItemIndex(programItemId);
   const nextIndex = itemIndex + Number(direction);
 
@@ -1440,11 +1575,14 @@ async function moveProgramItem(programItemId, direction) {
 
   const [item] = programItems.splice(itemIndex, 1);
   programItems.splice(nextIndex, 0, item);
+  touchProgramSheet(activeProgram);
   await saveProgram();
   touchState();
 }
 
 async function reorderProgramItem(programItemId, targetIndex) {
+  const activeProgram = getActiveProgram();
+  const programItems = getActiveProgramItems();
   const itemIndex = getProgramItemIndex(programItemId);
   const normalizedTargetIndex = Number(targetIndex);
 
@@ -1460,12 +1598,13 @@ async function reorderProgramItem(programItemId, targetIndex) {
 
   const [item] = programItems.splice(itemIndex, 1);
   programItems.splice(normalizedTargetIndex, 0, item);
+  touchProgramSheet(activeProgram);
   await saveProgram();
   touchState();
 }
 
 function applyProgramItem(programItemId, options = {}) {
-  const item = programItems.find((entry) => entry.id === programItemId);
+  const item = getActiveProgramItems().find((entry) => entry.id === programItemId);
 
   if (!item) {
     throw new Error('Unknown program item.');
@@ -1508,14 +1647,96 @@ function applyProgramItem(programItemId, options = {}) {
   touchState();
 }
 
+async function selectProgramSheet(programId) {
+  const sheet = programSheets.find((entry) => entry.id === programId);
+
+  if (!sheet) {
+    throw new Error('Unknown program sheet.');
+  }
+
+  state.programId = sheet.id;
+  if (!sheet.items.some((item) => item.id === state.programItemId)) {
+    state.programItemId = '';
+  }
+
+  await saveProgram();
+  touchState();
+}
+
+async function createProgramSheet({ title }) {
+  const nextTitle = String(title || '').trim();
+
+  if (!nextTitle) {
+    throw new Error('순서표 이름을 입력해 주세요.');
+  }
+
+  const now = new Date().toISOString();
+  const nextSheet = normalizeProgramSheet({
+    title: nextTitle,
+    items: [],
+    createdAt: now,
+    updatedAt: now
+  });
+
+  programSheets.push(nextSheet);
+  state.programId = nextSheet.id;
+  state.programItemId = '';
+  await saveProgram();
+  touchState();
+  return nextSheet;
+}
+
+async function updateProgramSheet({ programId, title }) {
+  const sheet = programSheets.find((entry) => entry.id === String(programId || ''));
+  const nextTitle = String(title || '').trim();
+
+  if (!sheet) {
+    throw new Error('Unknown program sheet.');
+  }
+
+  if (!nextTitle) {
+    throw new Error('순서표 이름을 입력해 주세요.');
+  }
+
+  sheet.title = nextTitle;
+  touchProgramSheet(sheet);
+  await saveProgram();
+  touchState();
+}
+
+async function deleteProgramSheet(programId) {
+  if (programSheets.length <= 1) {
+    throw new Error('순서표는 최소 1개 이상 필요합니다.');
+  }
+
+  const sheetIndex = programSheets.findIndex((entry) => entry.id === String(programId || ''));
+
+  if (sheetIndex === -1) {
+    throw new Error('Unknown program sheet.');
+  }
+
+  const [deletedSheet] = programSheets.splice(sheetIndex, 1);
+
+  if (state.programId === deletedSheet.id) {
+    const nextSheet = programSheets[Math.min(sheetIndex, programSheets.length - 1)];
+    state.programId = nextSheet.id;
+    state.programItemId = '';
+  }
+
+  await saveProgram();
+  touchState();
+}
+
 function buildBackupPayload() {
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     songs,
     ppts,
     videos,
-    programItems,
+    programSheets,
+    activeProgramId: state.programId,
+    programItems: getActiveProgramItems(),
     displaySettings: state.displaySettings
   };
 }
@@ -1542,9 +1763,14 @@ async function restoreBackup(payload) {
   videos = Array.isArray(payload.videos)
     ? payload.videos.map(normalizeVideoEntry).filter(Boolean)
     : [];
-  programItems = Array.isArray(payload.programItems)
-    ? payload.programItems.map(normalizeProgramItem).filter(Boolean)
-    : [];
+  const restoredProgram = normalizeProgramStore(Array.isArray(payload.programSheets)
+    ? {
+        activeProgramId: payload.activeProgramId,
+        sheets: payload.programSheets
+      }
+    : (Array.isArray(payload.programItems) ? payload.programItems : payload.program));
+  programSheets = restoredProgram.sheets;
+  state.programId = restoredProgram.activeProgramId;
   state.displaySettings = normalizeDisplaySettings(payload.displaySettings || state.displaySettings);
   state.songId = songs[0].id;
   state.lineIndex = 0;
@@ -1591,6 +1817,7 @@ async function restoreBackup(payload) {
   await savePpts();
   await saveVideos();
   await saveProgram();
+  await saveDisplaySettings();
   touchState();
 }
 
@@ -1740,9 +1967,9 @@ app.post('/api/control/view-mode', (req, res) => {
   });
 });
 
-app.post('/api/control/display-settings', (req, res) => {
+app.post('/api/control/display-settings', async (req, res) => {
   try {
-    updateDisplaySettings(req.body);
+    await updateDisplaySettings(req.body);
     emitState();
 
     res.json({
@@ -1757,11 +1984,11 @@ app.post('/api/control/display-settings', (req, res) => {
   }
 });
 
-app.post('/api/control/audience/background', (req, res) => {
+app.post('/api/control/audience/background', async (req, res) => {
   try {
     const dataUrl = String(req.body.dataUrl || '');
 
-    updateDisplaySettings({
+    await updateDisplaySettings({
       target: 'audience',
       settings: {
         backgroundImage: dataUrl
@@ -2174,9 +2401,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('control:updateDisplaySettings', (payload, callback) => {
+  socket.on('control:updateDisplaySettings', async (payload, callback) => {
     try {
-      updateDisplaySettings(payload);
+      await updateDisplaySettings(payload);
       emitState();
 
       if (typeof callback === 'function') {
@@ -2262,6 +2489,106 @@ io.on('connection', (socket) => {
   socket.on('control:deleteSong', async ({ songId }, callback) => {
     try {
       await deleteSong(String(songId || ''));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:selectProgramSheet', async ({ programId }, callback) => {
+    try {
+      await selectProgramSheet(String(programId || ''));
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:createProgramSheet', async (payload, callback) => {
+    try {
+      await createProgramSheet(payload || {});
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:updateProgramSheet', async (payload, callback) => {
+    try {
+      await updateProgramSheet(payload || {});
+      emitState();
+
+      if (typeof callback === 'function') {
+        callback({
+          ok: true
+        });
+      }
+    } catch (error) {
+      if (typeof callback === 'function') {
+        callback({
+          ok: false,
+          message: error.message
+        });
+        return;
+      }
+
+      socket.emit('errorMessage', {
+        message: error.message
+      });
+    }
+  });
+
+  socket.on('control:deleteProgramSheet', async ({ programId }, callback) => {
+    try {
+      await deleteProgramSheet(String(programId || ''));
       emitState();
 
       if (typeof callback === 'function') {
@@ -2403,6 +2730,7 @@ await loadSongs();
 await loadPpts();
 await loadVideos();
 await loadProgram();
+await loadDisplaySettings();
 
 server.listen(PORT, () => {
   console.log(`[lyrics-service] running on http://localhost:${PORT}`);

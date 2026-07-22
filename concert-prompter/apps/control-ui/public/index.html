@@ -66,94 +66,7 @@
           </div>
         </section>
 
-        <section class="panel emergency-panel">
-          <div class="section-header">
-            <h2>긴급 문구</h2>
-            <span id="emergencyStatus" class="save-status">꺼짐</span>
-          </div>
-          <div class="emergency-presets">
-            <button class="small-button emergency-preset-button" type="button" data-message="잠시만 기다려 주세요">잠시만</button>
-            <button class="small-button emergency-preset-button" type="button" data-message="기도 중입니다">기도 중</button>
-            <button class="small-button emergency-preset-button" type="button" data-message="광고 준비 중입니다">광고 준비</button>
-            <button class="small-button emergency-preset-button" type="button" data-message="곧 시작합니다">곧 시작</button>
-          </div>
-          <div class="emergency-custom">
-            <input id="emergencyMessageInput" type="text" placeholder="직접 입력할 긴급 문구" />
-            <button id="sendEmergencyMessageButton" class="small-button primary" type="button">띄우기</button>
-            <button id="clearEmergencyMessageButton" class="small-button" type="button">해제</button>
-          </div>
-        </section>
-      </div>
-
-      <div class="control-column">
-        <section class="panel audience-preview-panel">
-          <div class="section-header">
-            <h2>관객 실제 화면</h2>
-            <span id="audiencePreviewStatus" class="save-status">대기</span>
-          </div>
-          <div id="audienceLivePreview" class="audience-live-preview">
-            <div id="audiencePreviewLyric" class="audience-preview-lyric">-</div>
-            <img id="audiencePreviewPpt" class="audience-preview-ppt" alt="Audience PPT preview" hidden />
-            <video id="audiencePreviewVideo" class="audience-preview-video" muted playsinline hidden></video>
-          </div>
-        </section>
-
-        <section class="buttons">
-          <button id="prevButton" type="button">이전 줄</button>
-          <button id="nextButton" type="button" class="primary">다음 줄</button>
-          <button id="undoButton" type="button">되돌리기</button>
-          <button id="blankOnButton" type="button" class="danger">빈 화면 ON</button>
-          <button id="blankOffButton" type="button">빈 화면 OFF</button>
-        </section>
-
-        <section class="panel ppt-control-panel">
-          <div class="section-header">
-            <h2>PPT 제어</h2>
-            <span id="pptStatus" class="save-status">PPT 없음</span>
-          </div>
-
-          <label>
-            PPT 업로드
-            <input id="pptInput" type="file" accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" />
-            <div class="hint">PowerPoint가 설치된 PC에서 PPT/PPTX를 슬라이드 이미지로 변환합니다.</div>
-          </label>
-
-          <label>
-            저장된 PPT 선택
-            <select id="pptSelect"></select>
-          </label>
-
-          <button id="deletePptButton" class="small-button danger" type="button">PPT 삭제</button>
-
-          <div class="buttons ppt-buttons">
-            <button id="lyricsModeButton" type="button">가사 화면</button>
-            <button id="pptModeButton" type="button" class="primary">PPT 화면</button>
-            <button id="prevPptButton" type="button">이전 슬라이드</button>
-            <button id="nextPptButton" type="button">다음 슬라이드</button>
-          </div>
-        </section>
-
-        <section class="panel video-control-panel">
-          <div class="section-header">
-            <h2>영상 제어</h2>
-            <span id="videoStatus" class="save-status">영상 없음</span>
-          </div>
-
-          <label>
-            영상 업로드
-            <input id="videoInput" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v" />
-            <div class="hint">MP4/WebM/MOV/M4V 파일을 저장하고 관객/가사용 화면에서 스트리밍 재생합니다.</div>
-          </label>
-
-          <label>
-            저장된 영상 선택
-            <select id="videoSelect"></select>
-          </label>
-
-          <button id="deleteVideoButton" class="small-button danger" type="button">영상 삭제</button>
-        </section>
-
-        <section class="panel">
+        <section class="panel display-settings-panel">
           <div class="section-header">
             <h2>가사 표시 설정</h2>
             <div class="section-actions">
@@ -292,6 +205,90 @@
             </div>
           </div>
         </section>
+
+        <section class="panel backup-panel">
+          <div class="section-header">
+            <h2>백업/복원</h2>
+            <span id="backupStatus" class="save-status">대기</span>
+          </div>
+          <div class="backup-actions">
+            <button id="exportBackupButton" class="small-button" type="button">백업 저장</button>
+            <label class="backup-import-label">
+              백업 복원
+              <input id="importBackupInput" type="file" accept="application/json,.json" />
+            </label>
+          </div>
+          <div class="hint">곡, PPT 목록, 순서표, 화면 설정을 JSON으로 저장합니다. PPT 실제 파일은 기존 업로드 폴더를 사용합니다.</div>
+        </section>
+      </div>
+
+      <div class="control-column">
+        <section class="panel audience-preview-panel">
+          <div class="section-header">
+            <h2>관객 실제 화면</h2>
+            <span id="audiencePreviewStatus" class="save-status">대기</span>
+          </div>
+          <div id="audienceLivePreview" class="audience-live-preview">
+            <div id="audiencePreviewLyric" class="audience-preview-lyric">-</div>
+            <img id="audiencePreviewPpt" class="audience-preview-ppt" alt="Audience PPT preview" hidden />
+            <video id="audiencePreviewVideo" class="audience-preview-video" muted playsinline hidden></video>
+          </div>
+        </section>
+
+        <section class="buttons">
+          <button id="prevButton" type="button">이전 줄</button>
+          <button id="nextButton" type="button" class="primary">다음 줄</button>
+          <button id="blankOnButton" type="button" class="danger">빈 화면 ON</button>
+          <button id="blankOffButton" type="button">빈 화면 OFF</button>
+        </section>
+
+        <section class="panel ppt-control-panel">
+          <div class="section-header">
+            <h2>PPT 제어</h2>
+            <span id="pptStatus" class="save-status">PPT 없음</span>
+          </div>
+
+          <label>
+            PPT 업로드
+            <input id="pptInput" type="file" accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+            <div class="hint">PowerPoint가 설치된 PC에서 PPT/PPTX를 슬라이드 이미지로 변환합니다.</div>
+          </label>
+
+          <label>
+            저장된 PPT 선택
+            <select id="pptSelect"></select>
+          </label>
+
+          <button id="deletePptButton" class="small-button danger" type="button">PPT 삭제</button>
+
+          <div class="buttons ppt-buttons">
+            <button id="lyricsModeButton" type="button">가사 화면</button>
+            <button id="pptModeButton" type="button" class="primary">PPT 화면</button>
+            <button id="prevPptButton" type="button">이전 슬라이드</button>
+            <button id="nextPptButton" type="button">다음 슬라이드</button>
+          </div>
+        </section>
+
+        <section class="panel video-control-panel">
+          <div class="section-header">
+            <h2>영상 제어</h2>
+            <span id="videoStatus" class="save-status">영상 없음</span>
+          </div>
+
+          <label>
+            영상 업로드
+            <input id="videoInput" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v" />
+            <div class="hint">MP4/WebM/MOV/M4V 파일을 저장하고 관객/가사용 화면에서 스트리밍 재생합니다.</div>
+          </label>
+
+          <label>
+            저장된 영상 선택
+            <select id="videoSelect"></select>
+          </label>
+
+          <button id="deleteVideoButton" class="small-button danger" type="button">영상 삭제</button>
+        </section>
+
       </div>
 
       <aside class="lyrics-panel panel">
@@ -318,6 +315,19 @@
             <span id="programStatus" class="save-status">0개</span>
           </div>
 
+          <div class="program-sheet-control">
+            <label>
+              순서표 목록
+              <select id="programSheetSelect"></select>
+            </label>
+            <input id="programSheetTitleInput" type="text" placeholder="예: 1일차, 2일차, 주일 1부" />
+            <div class="program-sheet-actions">
+              <button id="createProgramSheetButton" class="small-button" type="button">새 목록</button>
+              <button id="renameProgramSheetButton" class="small-button" type="button">이름 저장</button>
+              <button id="deleteProgramSheetButton" class="small-button danger" type="button">목록 삭제</button>
+            </div>
+          </div>
+
           <div class="program-actions">
             <button id="addCurrentSongProgramButton" class="small-button" type="button">현재 곡 추가</button>
             <button id="addCurrentPptProgramButton" class="small-button" type="button">현재 PPT 추가</button>
@@ -342,20 +352,6 @@
           <ol id="programList" class="program-list"></ol>
         </section>
 
-        <section class="backup-panel">
-          <div class="section-header">
-            <h2>백업/복원</h2>
-            <span id="backupStatus" class="save-status">대기</span>
-          </div>
-          <div class="backup-actions">
-            <button id="exportBackupButton" class="small-button" type="button">백업 저장</button>
-            <label class="backup-import-label">
-              백업 복원
-              <input id="importBackupInput" type="file" accept="application/json,.json" />
-            </label>
-          </div>
-          <div class="hint">곡, PPT 목록, 순서표, 화면 설정을 JSON으로 저장합니다. PPT 실제 파일은 기존 업로드 폴더를 사용합니다.</div>
-        </section>
       </aside>
     </div>
   </main>

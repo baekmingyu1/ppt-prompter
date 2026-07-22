@@ -1,0 +1,24 @@
+{
+  "lineCount": 2,
+  "audience": {
+    "fontSizeVw": 12,
+    "fontWeight": 800,
+    "fontColor": "#ffffff",
+    "verticalPositionPercent": 50,
+    "pptVerticalPositionPercent": 50,
+    "backgroundImage": ""
+  },
+  "singer": {
+    "fontSizeVw": 6,
+    "fontWeight": 900,
+    "fontColor": "#ffffff",
+    "verticalPositionPercent": 50,
+    "pptVerticalPositionPercent": 50
+  },
+  "control": {
+    "currentFontSizePx": 20,
+    "nextFontSizePx": 20,
+    "singerPreviewCurrentFontSizePx": 20,
+    "singerPreviewNextFontSizePx": 20
+  }
+}

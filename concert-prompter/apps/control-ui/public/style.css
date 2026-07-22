@@ -695,6 +695,11 @@ textarea {
   gap: 12px;
 }
 
+.singer-column .settings-grid,
+.singer-column .control-settings-column {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .control-settings-column {
   display: grid;
   grid-column: 1 / -1;
@@ -774,8 +779,22 @@ textarea {
 .program-actions,
 .program-toolbar,
 .program-sequence-actions,
-.program-note-form {
+.program-note-form,
+.program-sheet-control {
   display: grid;
+  gap: 8px;
+}
+
+.program-sheet-control {
+  padding: 12px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #1b1b1b;
+}
+
+.program-sheet-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -795,8 +814,9 @@ textarea {
 .program-list {
   display: grid;
   gap: 8px;
-  max-height: 220px;
+  max-height: 460px;
   padding: 0;
+  padding-right: 8px;
   margin: 0;
   overflow-y: auto;
   list-style: none;
@@ -862,8 +882,6 @@ textarea {
   display: grid;
   gap: 12px;
   margin-bottom: 22px;
-  padding-top: 20px;
-  border-top: 1px solid #303030;
 }
 
 .backup-actions {
@@ -1330,6 +1348,7 @@ button:disabled:hover {
 }
 
 .lyrics-scroll,
+.program-list,
 .current.is-scrollable,
 .next {
   scrollbar-width: thin;
@@ -1337,18 +1356,21 @@ button:disabled:hover {
 }
 
 .lyrics-scroll::-webkit-scrollbar,
+.program-list::-webkit-scrollbar,
 .current.is-scrollable::-webkit-scrollbar,
 .next::-webkit-scrollbar {
   width: 8px;
 }
 
 .lyrics-scroll::-webkit-scrollbar-track,
+.program-list::-webkit-scrollbar-track,
 .current.is-scrollable::-webkit-scrollbar-track,
 .next::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .lyrics-scroll::-webkit-scrollbar-thumb,
+.program-list::-webkit-scrollbar-thumb,
 .current.is-scrollable::-webkit-scrollbar-thumb,
 .next::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
@@ -1358,6 +1380,7 @@ button:disabled:hover {
 }
 
 .lyrics-scroll::-webkit-scrollbar-thumb:hover,
+.program-list::-webkit-scrollbar-thumb:hover,
 .current.is-scrollable::-webkit-scrollbar-thumb:hover,
 .next::-webkit-scrollbar-thumb:hover {
   background: #777;
