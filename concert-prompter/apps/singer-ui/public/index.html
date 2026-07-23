@@ -22,12 +22,13 @@
 
     <img id="pptSlide" class="ppt-slide" alt="PPT slide" hidden />
     <video id="videoPlayer" class="video-player" playsinline controls hidden></video>
+    <iframe id="youtubePlayer" class="youtube-player" title="YouTube video" allow="autoplay; fullscreen; encrypted-media" allowfullscreen hidden></iframe>
   </main>
 
   <script src="/config.js"></script>
   <script>
     document.write(`<script src="${window.__PROMPTER_CONFIG__?.lyricsServiceUrl || ''}/socket.io/socket.io.js"><\/script>`);
   </script>
-  <script src="./app.js"></script>
+  <script src="./app.js?v=youtube-link-1"></script>
 </body>
 </html>

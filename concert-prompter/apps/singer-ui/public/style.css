@@ -95,7 +95,8 @@ body {
 }
 
 .ppt-slide,
-.video-player {
+.video-player,
+.youtube-player {
   position: absolute;
   top: var(--singer-ppt-y);
   left: 50%;
@@ -104,4 +105,5 @@ body {
   transform: translate(-50%, -50%);
   object-fit: contain;
   background: #000;
+  border: 0;
 }

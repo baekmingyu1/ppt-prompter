@@ -5,6 +5,7 @@ const socket = LYRICS_SERVICE_URL ? io(LYRICS_SERVICE_URL) : io();
 const lyric = document.getElementById('lyric');
 const pptSlide = document.getElementById('pptSlide');
 const videoPlayer = document.getElementById('videoPlayer');
+const youtubePlayer = document.getElementById('youtubePlayer');
 const lyricMeasure = document.createElement('div');
 let audienceFontSizeVw = 6;
 let latestPayload = null;
@@ -86,14 +87,22 @@ function applyBackground(settings = {}) {
 
 function clearVideoPlayer() {
   videoPlayer.hidden = true;
+  videoPlayer.controls = false;
   videoPlayer.pause();
   videoPlayer.removeAttribute('src');
   videoPlayer.load();
 }
 
+function clearYoutubePlayer() {
+  youtubePlayer.hidden = true;
+  youtubePlayer.removeAttribute('src');
+}
+
 function playVideo(url) {
   const nextUrl = getAssetUrl(url);
   videoPlayer.hidden = false;
+  videoPlayer.controls = true;
+  clearYoutubePlayer();
   videoPlayer.muted = false;
 
   if (videoPlayer.getAttribute('src') !== nextUrl) {
@@ -101,6 +110,16 @@ function playVideo(url) {
   }
 
   videoPlayer.play().catch(() => {});
+}
+
+function playYoutubeVideo(video = {}) {
+  const nextUrl = video.embedUrl || video.url || '';
+  clearVideoPlayer();
+  youtubePlayer.hidden = false;
+
+  if (youtubePlayer.getAttribute('src') !== nextUrl) {
+    youtubePlayer.src = nextUrl;
+  }
 }
 
 function render(payload) {
@@ -113,6 +132,7 @@ function render(payload) {
     pptSlide.hidden = true;
     pptSlide.removeAttribute('src');
     clearVideoPlayer();
+    clearYoutubePlayer();
     lyric.textContent = '';
     return;
   }
@@ -122,6 +142,7 @@ function render(payload) {
     pptSlide.hidden = false;
     pptSlide.src = getAssetUrl(payload.ppt?.currentSlide?.url);
     clearVideoPlayer();
+    clearYoutubePlayer();
     return;
   }
 
@@ -129,6 +150,11 @@ function render(payload) {
     lyric.hidden = true;
     pptSlide.hidden = true;
     pptSlide.removeAttribute('src');
+    if (payload.video.source === 'youtube') {
+      playYoutubeVideo(payload.video);
+      return;
+    }
+
     playVideo(payload.video.url);
     return;
   }
@@ -137,6 +163,7 @@ function render(payload) {
   pptSlide.hidden = true;
   pptSlide.removeAttribute('src');
   clearVideoPlayer();
+  clearYoutubePlayer();
 
   lyric.textContent = payload.currentLines?.length ? payload.currentLines.join('\n') : '';
   fitLyricsToSongWidth();

@@ -17,6 +17,7 @@ const audienceLivePreview = document.getElementById('audienceLivePreview');
 const audiencePreviewLyric = document.getElementById('audiencePreviewLyric');
 const audiencePreviewPpt = document.getElementById('audiencePreviewPpt');
 const audiencePreviewVideo = document.getElementById('audiencePreviewVideo');
+const audiencePreviewYoutube = document.getElementById('audiencePreviewYoutube');
 const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
 const undoButton = document.getElementById('undoButton');
@@ -32,6 +33,9 @@ const pptSelect = document.getElementById('pptSelect');
 const deletePptButton = document.getElementById('deletePptButton');
 const pptStatus = document.getElementById('pptStatus');
 const videoInput = document.getElementById('videoInput');
+const youtubeUrlInput = document.getElementById('youtubeUrlInput');
+const youtubeTitleInput = document.getElementById('youtubeTitleInput');
+const addYoutubeVideoButton = document.getElementById('addYoutubeVideoButton');
 const videoSelect = document.getElementById('videoSelect');
 const deleteVideoButton = document.getElementById('deleteVideoButton');
 const videoStatus = document.getElementById('videoStatus');
@@ -201,6 +205,11 @@ function getProgramTypeLabel(type) {
   if (type === 'ppt') return 'PPT';
   if (type === 'video') return '영상';
   return '메모';
+}
+
+function getVideoDisplayName(video = {}) {
+  const prefix = video.source === 'youtube' ? 'YouTube · ' : '';
+  return `${prefix}${video.filename || '영상'}`;
 }
 
 function getSelectedProgramIndex(items) {
@@ -592,7 +601,7 @@ function renderVideoControl(payload) {
     videoLibrary.forEach((item) => {
       const option = document.createElement('option');
       option.value = item.id;
-      option.textContent = item.filename || '영상';
+      option.textContent = getVideoDisplayName(item);
       videoSelect.appendChild(option);
     });
 
@@ -604,7 +613,7 @@ function renderVideoControl(payload) {
     deleteVideoButton.disabled = !video.id || videoLibrary.length === 0;
   }
 
-  videoStatus.textContent = hasVideo ? (video.filename || '영상 선택됨') : '영상 없음';
+  videoStatus.textContent = hasVideo ? getVideoDisplayName(video) : '영상 없음';
 }
 
 function renderBlankControl(payload) {
@@ -652,13 +661,15 @@ function renderAudiencePreview(payload) {
   audienceLivePreview.style.backgroundImage = isBlank ? '' : backgroundImage;
   audiencePreviewLyric.hidden = isBlank || isPptMode || isVideoMode;
   audiencePreviewPpt.hidden = isBlank || !isPptMode;
-  audiencePreviewVideo.hidden = isBlank || !isVideoMode;
+  audiencePreviewVideo.hidden = isBlank || !isVideoMode || payload.video?.source === 'youtube';
+  audiencePreviewYoutube.hidden = isBlank || !isVideoMode || payload.video?.source !== 'youtube';
 
   if (isBlank) {
     audiencePreviewStatus.textContent = '빈 화면';
     audiencePreviewPpt.removeAttribute('src');
     audiencePreviewVideo.removeAttribute('src');
     audiencePreviewVideo.load();
+    audiencePreviewYoutube.removeAttribute('src');
     audiencePreviewLyric.textContent = '';
     return;
   }
@@ -668,13 +679,23 @@ function renderAudiencePreview(payload) {
     audiencePreviewPpt.src = getAssetUrl(payload.ppt.currentSlide.url);
     audiencePreviewVideo.removeAttribute('src');
     audiencePreviewVideo.load();
+    audiencePreviewYoutube.removeAttribute('src');
     audiencePreviewLyric.textContent = '';
     return;
   }
 
   if (isVideoMode) {
-    audiencePreviewStatus.textContent = '영상';
+    audiencePreviewStatus.textContent = payload.video.source === 'youtube' ? 'YouTube' : '영상';
     audiencePreviewPpt.removeAttribute('src');
+    if (payload.video.source === 'youtube') {
+      audiencePreviewVideo.removeAttribute('src');
+      audiencePreviewVideo.load();
+      audiencePreviewYoutube.src = payload.video.embedUrl || payload.video.url;
+      audiencePreviewLyric.textContent = '';
+      return;
+    }
+
+    audiencePreviewYoutube.removeAttribute('src');
     audiencePreviewVideo.src = getAssetUrl(payload.video.url);
     audiencePreviewVideo.play().catch(() => {});
     audiencePreviewLyric.textContent = '';
@@ -685,6 +706,7 @@ function renderAudiencePreview(payload) {
   audiencePreviewPpt.removeAttribute('src');
   audiencePreviewVideo.removeAttribute('src');
   audiencePreviewVideo.load();
+  audiencePreviewYoutube.removeAttribute('src');
   audiencePreviewLyric.textContent = getLinesText(payload.currentLines) || '-';
   audiencePreviewLyric.style.color = settings.fontColor || '#fff';
   audiencePreviewLyric.style.fontWeight = String(settings.fontWeight || 800);
@@ -903,7 +925,7 @@ addCurrentVideoProgramButton.addEventListener('click', () => {
   addProgramItem({
     type: 'video',
     refId: latestState.video.id,
-    title: latestState.video.filename || '영상'
+    title: getVideoDisplayName(latestState.video)
   });
 });
 
@@ -1205,6 +1227,48 @@ async function uploadBinaryFile({
   }
 }
 
+async function createYoutubeVideo() {
+  const url = youtubeUrlInput?.value.trim() || '';
+  const title = youtubeTitleInput?.value.trim() || '';
+
+  if (!url) {
+    alert('유튜브 링크를 입력해 주세요.');
+    return;
+  }
+
+  videoStatus.textContent = '유튜브 링크 등록 중';
+  addYoutubeVideoButton.disabled = true;
+
+  try {
+    const resp = await fetch(`${LYRICS_SERVICE_URL}/api/control/video/youtube`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        url,
+        title
+      })
+    });
+    const json = await resp.json();
+
+    if (!json.ok) {
+      alert(json.message || '유튜브 링크 등록 실패');
+      videoStatus.textContent = '유튜브 링크 등록 실패';
+      return;
+    }
+
+    youtubeUrlInput.value = '';
+    youtubeTitleInput.value = '';
+    videoStatus.textContent = '유튜브 링크 등록 완료';
+  } catch {
+    alert('유튜브 링크 등록 중 오류가 발생했습니다.');
+    videoStatus.textContent = '유튜브 링크 등록 실패';
+  } finally {
+    addYoutubeVideoButton.disabled = false;
+  }
+}
+
 [fontSizeAudienceInput, fontWeightAudienceInput, fontColorAudienceInput, verticalPositionAudienceInput, pptVerticalPositionAudienceInput].forEach((el) => {
   el.addEventListener('input', () => {
     if (settingsRenderLocked) return;
@@ -1375,6 +1439,20 @@ videoInput.addEventListener('change', async (event) => {
     failureMessage: '영상 업로드 실패'
   });
   videoInput.value = '';
+});
+
+if (addYoutubeVideoButton) {
+  addYoutubeVideoButton.addEventListener('click', createYoutubeVideo);
+}
+
+[youtubeUrlInput, youtubeTitleInput].forEach((input) => {
+  if (!input) return;
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    createYoutubeVideo();
+  });
 });
 
 document.addEventListener('keydown', (event) => {

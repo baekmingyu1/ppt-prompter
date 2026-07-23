@@ -53,6 +53,7 @@ function clearJumpBuffer() {
 function getProgramTypeLabel(type) {
   if (type === 'song') return '곡';
   if (type === 'ppt') return 'PPT';
+  if (type === 'video') return '영상';
   return '메모';
 }
 
@@ -403,6 +404,19 @@ function buildProgramOverviewEntries(payload) {
       return;
     }
 
+    if (item.type === 'video') {
+      entries.push({
+        type: 'video',
+        programItemId: item.id,
+        title: item.title,
+        itemNumber: itemIndex + 1,
+        filename: item.filename,
+        source: item.source,
+        active: item.id === currentItemId
+      });
+      return;
+    }
+
     entries.push({
       type: 'note',
       programItemId: item.id,
@@ -455,9 +469,13 @@ function renderProgramOverview(payload) {
     } else {
       const text = document.createElement('span');
       text.className = 'overview-lyric-text';
-      text.textContent = entry.type === 'note'
-        ? `[메모] ${entry.title}`
-        : entry.lines.map((line) => line || '(빈 줄)').join('\n');
+      if (entry.type === 'note') {
+        text.textContent = `[메모] ${entry.title}`;
+      } else if (entry.type === 'video') {
+        text.textContent = `[${entry.source === 'youtube' ? 'YouTube' : '영상'}] ${entry.title || entry.filename || '영상'}`;
+      } else {
+        text.textContent = entry.lines.map((line) => line || '(빈 줄)').join('\n');
+      }
       const number = document.createElement('span');
       number.className = 'overview-slide-number';
       number.textContent = String(index + 1);

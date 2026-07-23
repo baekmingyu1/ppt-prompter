@@ -1,16 +1,24 @@
 [
   {
-    "id": "1784107814503-9v8ac5",
-    "filename": "KakaoTalk_20260212_114829522.mp4",
-    "url": "/uploads/video/1784107814503-9v8ac5/source.mp4",
-    "contentType": "video/mp4",
-    "createdAt": "2026-07-15T09:30:14.503Z"
+    "id": "youtube-StBmvKCLCjg",
+    "filename": "참교육",
+    "url": "https://www.youtube.com/embed/StBmvKCLCjg?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+    "source": "youtube",
+    "originalUrl": "https://youtube.com/shorts/StBmvKCLCjg?si=0OFiQNF8BpeGTbzU",
+    "embedUrl": "https://www.youtube.com/embed/StBmvKCLCjg?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+    "providerVideoId": "StBmvKCLCjg",
+    "contentType": "text/html",
+    "createdAt": "2026-07-23T09:53:47.465Z"
   },
   {
-    "id": "1784107881946-5wnmh0",
-    "filename": "영상 테스트_열기구.mp4",
-    "url": "/uploads/video/1784107881946-5wnmh0/source.mp4",
-    "contentType": "video/mp4",
-    "createdAt": "2026-07-15T09:31:21.946Z"
+    "id": "youtube-PgPxtrf3Dag",
+    "filename": "모솔",
+    "url": "https://www.youtube.com/embed/PgPxtrf3Dag?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+    "source": "youtube",
+    "originalUrl": "https://www.youtube.com/shorts/PgPxtrf3Dag",
+    "embedUrl": "https://www.youtube.com/embed/PgPxtrf3Dag?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+    "providerVideoId": "PgPxtrf3Dag",
+    "contentType": "text/html",
+    "createdAt": "2026-07-23T09:54:16.749Z"
   }
 ]

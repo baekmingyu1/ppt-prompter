@@ -232,6 +232,7 @@
             <div id="audiencePreviewLyric" class="audience-preview-lyric">-</div>
             <img id="audiencePreviewPpt" class="audience-preview-ppt" alt="Audience PPT preview" hidden />
             <video id="audiencePreviewVideo" class="audience-preview-video" muted playsinline hidden></video>
+            <iframe id="audiencePreviewYoutube" class="audience-preview-youtube" title="Audience YouTube preview" allow="autoplay; fullscreen; encrypted-media" allowfullscreen hidden></iframe>
           </div>
         </section>
 
@@ -280,6 +281,18 @@
             <input id="videoInput" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v" />
             <div class="hint">MP4/WebM/MOV/M4V 파일을 저장하고 관객/가사용 화면에서 스트리밍 재생합니다.</div>
           </label>
+
+          <div class="youtube-link-form">
+            <label>
+              유튜브 링크
+              <input id="youtubeUrlInput" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+            </label>
+            <label>
+              표시 이름
+              <input id="youtubeTitleInput" type="text" placeholder="예: 오프닝 영상" />
+            </label>
+            <button id="addYoutubeVideoButton" class="small-button" type="button">링크 등록</button>
+          </div>
 
           <label>
             저장된 영상 선택
@@ -360,6 +373,6 @@
   <script>
     document.write(`<script src="${window.__PROMPTER_CONFIG__?.lyricsServiceUrl || ''}/socket.io/socket.io.js"><\/script>`);
   </script>
-  <script src="./app.js"></script>
+  <script src="./app.js?v=youtube-link-1"></script>
 </body>
 </html>

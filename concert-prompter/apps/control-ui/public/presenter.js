@@ -53,6 +53,7 @@ function syncViewMode(mode) {
 function getProgramTypeLabel(type) {
   if (type === 'song') return '곡';
   if (type === 'ppt') return 'PPT';
+  if (type === 'video') return '영상';
   return '메모';
 }
 
@@ -85,6 +86,27 @@ function applyProgramItem(programItemId) {
   socket.emit('control:applyProgramItem', {
     programItemId
   });
+}
+
+function applyProgramItemAtEnd(item) {
+  if (!item?.id) return;
+
+  const payload = {
+    programItemId: item.id
+  };
+
+  if (item.type === 'song') {
+    const lineCount = Number(latestState?.state?.displaySettings?.lineCount || 1);
+    const totalLines = Array.isArray(item.lyrics) ? item.lyrics.length : 0;
+    payload.lineIndex = Math.max(Math.floor(Math.max(totalLines - 1, 0) / lineCount) * lineCount, 0);
+  }
+
+  if (item.type === 'ppt') {
+    const totalSlides = Array.isArray(item.slides) ? item.slides.length : 0;
+    payload.slideIndex = Math.max(totalSlides - 1, 0);
+  }
+
+  socket.emit('control:applyProgramItem', payload);
 }
 
 function getCurrentProgramItem(payload) {
@@ -121,6 +143,12 @@ function renderProgramItemPreview(frame, item, emptyText = '다음 순서 없음
   if (item.type === 'song') {
     const lineCount = Number(latestState?.state?.displaySettings?.lineCount || 1);
     renderTextFrame(frame, item.lyrics?.slice(0, lineCount), item.title || '가사');
+    return;
+  }
+
+  if (item.type === 'video') {
+    const label = item.source === 'youtube' ? 'YouTube' : '영상';
+    renderTextFrame(frame, [`[${label}]\n${item.title || item.filename || '영상'}`]);
     return;
   }
 
@@ -171,6 +199,7 @@ function renderPptPresenter(payload) {
   const currentSlide = payload.ppt?.currentSlide || slides[slideIndex];
   const nextSlide = slides[slideIndex + 1];
   const nextProgramItem = getAdjacentProgramItem(payload, 1);
+  const previousProgramItem = getAdjacentProgramItem(payload, -1);
   const totalSlides = slides.length;
   const progress = totalSlides ? `${slideIndex + 1} / ${totalSlides}` : '0 / 0';
 
@@ -187,7 +216,7 @@ function renderPptPresenter(payload) {
     renderProgramItemPreview(presenterNextFrame, nextProgramItem);
   }
 
-  presenterPrevButton.disabled = slideIndex <= 0;
+  presenterPrevButton.disabled = slideIndex <= 0 && !previousProgramItem;
   presenterNextButton.disabled = !totalSlides || (slideIndex >= totalSlides - 1 && !nextProgramItem);
 }
 
@@ -199,6 +228,7 @@ function renderLyricsPresenter(payload) {
   const currentGroup = Math.floor(lineIndex / lineCount) + 1;
   const progress = `${currentGroup} / ${totalGroups}`;
   const nextProgramItem = getAdjacentProgramItem(payload, 1);
+  const previousProgramItem = getAdjacentProgramItem(payload, -1);
   const isLastGroup = lineIndex + lineCount >= lyrics.length;
 
   presenterCurrentLabel.textContent = payload.song?.title || '가사';
@@ -214,8 +244,25 @@ function renderLyricsPresenter(payload) {
     renderTextFrame(presenterNextFrame, payload.nextLines, '다음 가사 없음');
   }
 
-  presenterPrevButton.disabled = lineIndex <= 0;
+  presenterPrevButton.disabled = lineIndex <= 0 && !previousProgramItem;
   presenterNextButton.disabled = isLastGroup && !nextProgramItem;
+}
+
+function renderVideoPresenter(payload, currentProgramItem) {
+  const nextProgramItem = getAdjacentProgramItem(payload, 1);
+  const previousProgramItem = getAdjacentProgramItem(payload, -1);
+  const video = payload.video || currentProgramItem || {};
+  const label = video.source === 'youtube' ? 'YouTube' : '영상';
+
+  presenterCurrentLabel.textContent = label;
+  presenterNextLabel.textContent = '다음 순서';
+  presenterProgress.textContent = '-';
+  presenterFooterProgress.textContent = currentProgramItem?.title || video.filename || '영상';
+  presenterNotes.textContent = video.originalUrl || video.url || '';
+  renderTextFrame(presenterCurrentFrame, [`[${label}]\n${currentProgramItem?.title || video.filename || '영상'}`]);
+  renderProgramItemPreview(presenterNextFrame, nextProgramItem);
+  presenterPrevButton.disabled = !previousProgramItem;
+  presenterNextButton.disabled = !nextProgramItem;
 }
 
 function render(payload) {
@@ -237,6 +284,11 @@ function render(payload) {
     return;
   }
 
+  if (currentProgramItem?.type === 'video' || payload.viewMode === 'video') {
+    renderVideoPresenter(payload, currentProgramItem);
+    return;
+  }
+
   if (payload.viewMode === 'ppt' && payload.ppt?.slides?.length) {
     renderPptPresenter(payload);
     return;
@@ -250,13 +302,33 @@ function movePrevious() {
   const previousProgramItem = latestState ? getAdjacentProgramItem(latestState, -1) : null;
 
   if (currentProgramItem?.type === 'note' && previousProgramItem) {
-    applyProgramItem(previousProgramItem.id);
+    applyProgramItemAtEnd(previousProgramItem);
+    return;
+  }
+
+  if (currentProgramItem?.type === 'video' && previousProgramItem) {
+    applyProgramItemAtEnd(previousProgramItem);
     return;
   }
 
   if (latestState?.viewMode === 'ppt' && latestState?.ppt?.slides?.length) {
+    const slideIndex = Number(latestState.ppt?.slideIndex || 0);
+    if (slideIndex <= 0 && previousProgramItem) {
+      applyProgramItemAtEnd(previousProgramItem);
+      return;
+    }
+
     socket.emit('control:prevPptSlide');
     return;
+  }
+
+  if (latestState?.program?.currentItemId) {
+    const lineIndex = Number(latestState.state?.lineIndex || 0);
+
+    if (lineIndex <= 0 && previousProgramItem) {
+      applyProgramItemAtEnd(previousProgramItem);
+      return;
+    }
   }
 
   socket.emit('control:prev');
@@ -267,6 +339,11 @@ function moveNext() {
   const currentProgramItem = latestState ? getCurrentProgramItem(latestState) : null;
 
   if (currentProgramItem?.type === 'note' && nextProgramItem) {
+    applyProgramItem(nextProgramItem.id);
+    return;
+  }
+
+  if (currentProgramItem?.type === 'video' && nextProgramItem) {
     applyProgramItem(nextProgramItem.id);
     return;
   }

@@ -160,6 +160,10 @@ let state = {
     id: '',
     filename: '',
     url: '',
+    source: '',
+    originalUrl: '',
+    embedUrl: '',
+    providerVideoId: '',
     contentType: ''
   },
   singerControl: {
@@ -491,6 +495,7 @@ function normalizeVideoEntry(item) {
   const id = String(item.id || '').trim();
   const filename = String(item.filename || '').trim();
   const url = String(item.url || '').trim();
+  const source = item.source === 'youtube' ? 'youtube' : 'upload';
 
   if (!id || !filename || !url) return null;
 
@@ -498,9 +503,57 @@ function normalizeVideoEntry(item) {
     id,
     filename,
     url,
-    contentType: String(item.contentType || 'video/mp4'),
+    source,
+    originalUrl: source === 'youtube' ? String(item.originalUrl || url).trim() : '',
+    embedUrl: source === 'youtube' ? String(item.embedUrl || url).trim() : '',
+    providerVideoId: source === 'youtube' ? String(item.providerVideoId || '').trim() : '',
+    contentType: String(item.contentType || (source === 'youtube' ? 'text/html' : 'video/mp4')),
     createdAt: item.createdAt || new Date().toISOString()
   };
+}
+
+function getYoutubeVideoId(inputUrl) {
+  const rawUrl = String(inputUrl || '').trim();
+
+  if (!rawUrl) {
+    throw new Error('유튜브 링크를 입력해 주세요.');
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    throw new Error('올바른 유튜브 링크를 입력해 주세요.');
+  }
+
+  const hostname = parsedUrl.hostname.replace(/^www\./, '').toLowerCase();
+  if (hostname === 'youtu.be') {
+    return parsedUrl.pathname.split('/').filter(Boolean)[0] || '';
+  }
+
+  if (hostname === 'youtube.com' || hostname === 'm.youtube.com' || hostname === 'music.youtube.com') {
+    if (parsedUrl.pathname === '/watch') {
+      return parsedUrl.searchParams.get('v') || '';
+    }
+
+    const pathParts = parsedUrl.pathname.split('/').filter(Boolean);
+    if (['embed', 'shorts', 'live'].includes(pathParts[0])) {
+      return pathParts[1] || '';
+    }
+  }
+
+  return '';
+}
+
+function buildYoutubeEmbedUrl(videoId) {
+  const params = new URLSearchParams({
+    autoplay: '1',
+    playsinline: '1',
+    rel: '0',
+    modestbranding: '1'
+  });
+
+  return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`;
 }
 
 function getProgramPayload() {
@@ -526,6 +579,10 @@ function getProgramPayload() {
       slides: Array.isArray(ppt?.slides) ? ppt.slides : [],
       filename: ppt?.filename || video?.filename || '',
       url: video?.url || '',
+      source: video?.source || '',
+      originalUrl: video?.originalUrl || '',
+      embedUrl: video?.embedUrl || '',
+      providerVideoId: video?.providerVideoId || '',
       contentType: video?.contentType || ''
     };
   });
@@ -608,6 +665,10 @@ function getVideoLibraryPayload() {
     id: video.id,
     filename: video.filename,
     url: video.url,
+    source: video.source || 'upload',
+    originalUrl: video.originalUrl || '',
+    embedUrl: video.embedUrl || '',
+    providerVideoId: video.providerVideoId || '',
     contentType: video.contentType,
     createdAt: video.createdAt
   }));
@@ -652,6 +713,10 @@ function setVideoById(videoId, options = {}) {
     id: video.id,
     filename: video.filename,
     url: video.url,
+    source: video.source || 'upload',
+    originalUrl: video.originalUrl || '',
+    embedUrl: video.embedUrl || '',
+    providerVideoId: video.providerVideoId || '',
     contentType: video.contentType
   };
 
@@ -837,6 +902,10 @@ async function uploadVideo({ filename, fileBuffer }) {
     id: uploadId,
     filename: String(filename || `video${extension}`),
     url: `/uploads/video/${uploadId}/${safeFilename}`,
+    source: 'upload',
+    originalUrl: '',
+    embedUrl: '',
+    providerVideoId: '',
     contentType: getVideoContentType(extension),
     createdAt: new Date().toISOString()
   };
@@ -851,11 +920,64 @@ async function uploadVideo({ filename, fileBuffer }) {
     id: videoEntry.id,
     filename: videoEntry.filename,
     url: videoEntry.url,
+    source: videoEntry.source,
+    originalUrl: videoEntry.originalUrl,
+    embedUrl: videoEntry.embedUrl,
+    providerVideoId: videoEntry.providerVideoId,
     contentType: videoEntry.contentType
   };
   state.viewMode = 'video';
   touchState();
   await saveVideos();
+}
+
+async function createYoutubeVideo({ url, title }) {
+  const originalUrl = String(url || '').trim();
+  const providerVideoId = getYoutubeVideoId(originalUrl);
+
+  if (!providerVideoId) {
+    throw new Error('지원하는 유튜브 링크 형식이 아닙니다.');
+  }
+
+  const youtubeId = `youtube-${providerVideoId}`;
+  const duplicate = videos.find((item) => item.id === youtubeId);
+
+  if (duplicate) {
+    setVideoById(duplicate.id, {
+      skipUndo: true
+    });
+    await saveVideos();
+    return duplicate;
+  }
+
+  const filename = String(title || '').trim() || `YouTube ${providerVideoId}`;
+  const videoEntry = {
+    id: youtubeId,
+    filename,
+    url: buildYoutubeEmbedUrl(providerVideoId),
+    source: 'youtube',
+    originalUrl,
+    embedUrl: buildYoutubeEmbedUrl(providerVideoId),
+    providerVideoId,
+    contentType: 'text/html',
+    createdAt: new Date().toISOString()
+  };
+
+  videos.push(videoEntry);
+  state.video = {
+    id: videoEntry.id,
+    filename: videoEntry.filename,
+    url: videoEntry.url,
+    source: videoEntry.source,
+    originalUrl: videoEntry.originalUrl,
+    embedUrl: videoEntry.embedUrl,
+    providerVideoId: videoEntry.providerVideoId,
+    contentType: videoEntry.contentType
+  };
+  state.viewMode = 'video';
+  touchState();
+  await saveVideos();
+  return videoEntry;
 }
 
 function getSingerMessageLines() {
@@ -1488,6 +1610,10 @@ async function deleteVideo(videoId) {
         id: '',
         filename: '',
         url: '',
+        source: '',
+        originalUrl: '',
+        embedUrl: '',
+        providerVideoId: '',
         contentType: ''
       };
       state.viewMode = state.viewMode === 'video' ? 'lyrics' : state.viewMode;
@@ -1809,6 +1935,10 @@ async function restoreBackup(payload) {
       id: '',
       filename: '',
       url: '',
+      source: '',
+      originalUrl: '',
+      embedUrl: '',
+      providerVideoId: '',
       contentType: ''
     };
   }
@@ -2015,6 +2145,12 @@ app.post('/api/control/video/upload', express.raw({
     filename: getUploadFilename(req),
     fileBuffer: req.body
   }), () => ({
+    video: state.video
+  }));
+});
+
+app.post('/api/control/video/youtube', async (req, res) => {
+  runControlRequest(req, res, () => createYoutubeVideo(req.body || {}), () => ({
     video: state.video
   }));
 });

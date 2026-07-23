@@ -780,7 +780,8 @@ textarea {
 .program-toolbar,
 .program-sequence-actions,
 .program-note-form,
-.program-sheet-control {
+.program-sheet-control,
+.youtube-link-form {
   display: grid;
   gap: 8px;
 }
@@ -809,6 +810,11 @@ textarea {
 
 .program-note-form {
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.youtube-link-form {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto;
+  align-items: end;
 }
 
 .program-list {
@@ -1089,7 +1095,8 @@ textarea {
 }
 
 .audience-preview-ppt,
-.audience-preview-video {
+.audience-preview-video,
+.audience-preview-youtube {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -1097,6 +1104,7 @@ textarea {
   height: 100%;
   object-fit: contain;
   background: #000;
+  border: 0;
 }
 
 .ppt-control-panel {
@@ -1433,7 +1441,8 @@ button:disabled:hover {
   .form-grid,
   .settings-grid,
   .control-settings-column,
-  .split-settings {
+  .split-settings,
+  .youtube-link-form {
     grid-template-columns: 1fr;
   }
 

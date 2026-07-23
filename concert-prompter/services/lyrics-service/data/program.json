@@ -58,48 +58,154 @@
         {
           "id": "program-mrxatcc6-v5t2d8",
           "type": "song",
-          "refId": "song-008",
           "title": "영접송 - 2일차",
+          "refId": "song-008",
           "createdAt": "2026-07-23T09:18:02.166Z"
         },
         {
           "id": "program-mrxatf40-x63g52",
           "type": "song",
-          "refId": "song-009",
           "title": "주를 바라보며 - 2일차",
+          "refId": "song-009",
           "createdAt": "2026-07-23T09:18:05.760Z"
         },
         {
           "id": "program-mrxathx2-9bqsno",
           "type": "song",
-          "refId": "song-010",
           "title": "우리가 주를 더욱 사랑하고 - 2일차",
+          "refId": "song-010",
           "createdAt": "2026-07-23T09:18:09.398Z"
         },
         {
           "id": "program-mrxatl2j-a8fcpr",
           "type": "song",
-          "refId": "song-011",
           "title": "내 마음을 가득 채운 - 2일차",
+          "refId": "song-011",
           "createdAt": "2026-07-23T09:18:13.483Z"
         },
         {
           "id": "program-mrxatofn-hlirbu",
           "type": "song",
-          "refId": "song-012",
           "title": "사랑이 나를 부르네 - 2일차",
+          "refId": "song-012",
           "createdAt": "2026-07-23T09:18:17.843Z"
         },
         {
           "id": "program-mrxatr77-c35rym",
           "type": "song",
-          "refId": "song-013",
           "title": "함께 지어져 가네 - 2일차",
+          "refId": "song-013",
           "createdAt": "2026-07-23T09:18:21.427Z"
+        },
+        {
+          "id": "program-mrxc4cut-c7u602",
+          "type": "video",
+          "refId": "youtube-StBmvKCLCjg",
+          "title": "YouTube · 참교육",
+          "createdAt": "2026-07-23T09:54:35.669Z"
+        },
+        {
+          "id": "program-mrxc44xf-xhhhfw",
+          "type": "video",
+          "refId": "youtube-PgPxtrf3Dag",
+          "title": "YouTube · 모솔",
+          "createdAt": "2026-07-23T09:54:25.395Z"
+        },
+        {
+          "id": "program-mrxc7cgd-9ly2vl",
+          "type": "song",
+          "refId": "song-014",
+          "title": "사랑이 나를 부르네 - 2일차 기도회",
+          "createdAt": "2026-07-23T09:56:55.117Z"
+        },
+        {
+          "id": "program-mrxc7fap-41iox5",
+          "type": "song",
+          "refId": "song-015",
+          "title": "내 영혼은 안전합니다 - 2일차 기도회",
+          "createdAt": "2026-07-23T09:56:58.801Z"
+        },
+        {
+          "id": "program-mrxc7hra-wmwp4v",
+          "type": "song",
+          "refId": "song-016",
+          "title": "하나님의 사랑이 - 2일차 기도회",
+          "createdAt": "2026-07-23T09:57:01.990Z"
+        },
+        {
+          "id": "program-mrxc7k6l-86jy4a",
+          "type": "song",
+          "refId": "song-017",
+          "title": "비전 - 2일차 기도회",
+          "createdAt": "2026-07-23T09:57:05.133Z"
+        },
+        {
+          "id": "program-mrxc7ns9-ar7lpy",
+          "type": "song",
+          "refId": "song-018",
+          "title": "멈출 수 없네 - 2일차 셀브",
+          "createdAt": "2026-07-23T09:57:09.801Z"
+        },
+        {
+          "id": "program-mrxc7riv-qrxmrl",
+          "type": "song",
+          "refId": "song-019",
+          "title": "나는 주의 친구 - 2일차 셀브",
+          "createdAt": "2026-07-23T09:57:14.647Z"
+        },
+        {
+          "id": "program-mrxc83zt-fcneqy",
+          "type": "song",
+          "refId": "song-020",
+          "title": "춤추는 세대 - 2일차 셀브",
+          "createdAt": "2026-07-23T09:57:30.809Z"
+        },
+        {
+          "id": "program-mrxc86ne-d7czk5",
+          "type": "song",
+          "refId": "song-021",
+          "title": "You Are Good - 2일차 셀브",
+          "createdAt": "2026-07-23T09:57:34.250Z"
+        },
+        {
+          "id": "program-mrxc8c1l-rqhgpf",
+          "type": "song",
+          "refId": "song-022",
+          "title": "우리가 주를 더욱 사랑하고 - 2일차 셀브",
+          "createdAt": "2026-07-23T09:57:41.241Z"
+        },
+        {
+          "id": "program-mrxc8f49-pvi9mw",
+          "type": "song",
+          "refId": "song-023",
+          "title": "주를 바라보며 - 2일차 셀브",
+          "createdAt": "2026-07-23T09:57:45.225Z"
         }
       ],
       "createdAt": "2026-07-22T00:00:00.000Z",
-      "updatedAt": "2026-07-23T09:18:26.971Z"
+      "updatedAt": "2026-07-23T09:57:45.225Z"
+    },
+    {
+      "id": "program-sheet-mrxc8lkm-efsgew",
+      "title": "3일차 예배",
+      "items": [
+        {
+          "id": "program-mrxc8vj9-xhzfuy",
+          "type": "song",
+          "refId": "song-024",
+          "title": "주를 바라보며 - 3일차",
+          "createdAt": "2026-07-23T09:58:06.501Z"
+        },
+        {
+          "id": "program-mrxc8yv3-z3t3ms",
+          "type": "song",
+          "refId": "song-025",
+          "title": "내 영혼은 안전합니다 - 3일차",
+          "createdAt": "2026-07-23T09:58:10.815Z"
+        }
+      ],
+      "createdAt": "2026-07-23T09:57:53.590Z",
+      "updatedAt": "2026-07-23T09:58:10.815Z"
     }
   ]
 }
