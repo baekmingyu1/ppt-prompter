@@ -1,70 +1,105 @@
 {
-  "activeProgramId": "program-sheet-day-1",
+  "activeProgramId": "program-sheet-day-2",
   "sheets": [
     {
       "id": "program-sheet-day-1",
-      "title": "첫날 예배",
+      "title": "1일차",
       "items": [
         {
           "id": "program-mrvqydlt-hoz480",
           "type": "song",
-          "refId": "song-002",
           "title": "하나님의 사랑이 + 사랑의 주님이 - 1일차",
+          "refId": "song-002",
           "createdAt": "2026-07-22T07:14:18.593Z"
         },
         {
           "id": "program-mrvqyfqa-n55190",
           "type": "song",
-          "refId": "song-003",
           "title": "우리가 주를 더욱 사랑하고 - 1일차",
+          "refId": "song-003",
           "createdAt": "2026-07-22T07:14:21.346Z"
         },
         {
           "id": "program-mrvqyhop-1banp2",
           "type": "song",
-          "refId": "song-004",
           "title": "어둔 날 다 지나고 - 1일차",
+          "refId": "song-004",
           "createdAt": "2026-07-22T07:14:23.881Z"
         },
         {
           "id": "program-mrvqyj1v-3lyewg",
           "type": "song",
-          "refId": "song-005",
           "title": "참 사랑 안에 두려움이 없습니다 - 1일차",
+          "refId": "song-005",
           "createdAt": "2026-07-22T07:14:25.651Z"
         },
         {
           "id": "program-mrvqykik-vogn19",
           "type": "song",
-          "refId": "song-006",
           "title": "사랑이 나를 부르네 - 1일차",
+          "refId": "song-006",
           "createdAt": "2026-07-22T07:14:27.548Z"
         },
         {
           "id": "program-mrvqym42-u1xb46",
           "type": "song",
-          "refId": "song-007",
           "title": "참 사랑 안에 두려움이 없습니다 - 1일차",
+          "refId": "song-007",
           "createdAt": "2026-07-22T07:14:29.618Z"
         }
       ],
       "createdAt": "2026-07-22T00:00:00.000Z",
-      "updatedAt": "2026-07-22T07:14:29.618Z"
+      "updatedAt": "2026-07-23T09:17:46.837Z"
     },
     {
       "id": "program-sheet-day-2",
-      "title": "2일차",
+      "title": "2일차 예배",
       "items": [
         {
-          "id": "program-mrvqz1no-qquuxz",
+          "id": "program-mrxatcc6-v5t2d8",
           "type": "song",
-          "refId": "song-006",
-          "title": "사랑이 나를 부르네 - 1일차",
-          "createdAt": "2026-07-22T07:14:49.764Z"
+          "refId": "song-008",
+          "title": "영접송 - 2일차",
+          "createdAt": "2026-07-23T09:18:02.166Z"
+        },
+        {
+          "id": "program-mrxatf40-x63g52",
+          "type": "song",
+          "refId": "song-009",
+          "title": "주를 바라보며 - 2일차",
+          "createdAt": "2026-07-23T09:18:05.760Z"
+        },
+        {
+          "id": "program-mrxathx2-9bqsno",
+          "type": "song",
+          "refId": "song-010",
+          "title": "우리가 주를 더욱 사랑하고 - 2일차",
+          "createdAt": "2026-07-23T09:18:09.398Z"
+        },
+        {
+          "id": "program-mrxatl2j-a8fcpr",
+          "type": "song",
+          "refId": "song-011",
+          "title": "내 마음을 가득 채운 - 2일차",
+          "createdAt": "2026-07-23T09:18:13.483Z"
+        },
+        {
+          "id": "program-mrxatofn-hlirbu",
+          "type": "song",
+          "refId": "song-012",
+          "title": "사랑이 나를 부르네 - 2일차",
+          "createdAt": "2026-07-23T09:18:17.843Z"
+        },
+        {
+          "id": "program-mrxatr77-c35rym",
+          "type": "song",
+          "refId": "song-013",
+          "title": "함께 지어져 가네 - 2일차",
+          "createdAt": "2026-07-23T09:18:21.427Z"
         }
       ],
       "createdAt": "2026-07-22T00:00:00.000Z",
-      "updatedAt": "2026-07-22T07:14:49.764Z"
+      "updatedAt": "2026-07-23T09:18:26.971Z"
     }
   ]
 }
