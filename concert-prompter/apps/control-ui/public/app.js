@@ -146,6 +146,7 @@ let settingsRenderLocked = false;
 let pendingControlDisplaySettings = null;
 let selectedProgramItemId = '';
 let draggedProgramItemId = '';
+let lastCurrentProgramItemId = '';
 let lastAutoScrollKey = '';
 
 function isControlDisplaySettingsInput(element) {
@@ -226,9 +227,13 @@ function applyProgramItemByIndex(items, index) {
   const item = items[index];
   if (!item || item.missing) return;
 
-  selectedProgramItemId = item.id;
+  applyProgramItem(item.id);
+}
+
+function applyProgramItem(programItemId) {
+  selectedProgramItemId = programItemId;
   socket.emit('control:applyProgramItem', {
-    programItemId: item.id
+    programItemId
   });
 }
 
@@ -243,8 +248,15 @@ function moveProgramStep(delta) {
 function scrollElementIntoContainer(element, container) {
   if (!element || !container) return;
 
-  const targetTop = element.offsetTop - (container.clientHeight / 2) + (element.offsetHeight / 2);
-  container.scrollTop = Math.max(targetTop, 0);
+  const elementRect = element.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  const elementCenterTop = elementRect.top - containerRect.top
+    + container.scrollTop
+    + (elementRect.height / 2);
+  const targetTop = elementCenterTop - (container.clientHeight / 2);
+  const maxScrollTop = Math.max(container.scrollHeight - container.clientHeight, 0);
+
+  container.scrollTop = Math.min(Math.max(targetTop, 0), maxScrollTop);
 }
 
 function renderProgram(payload, shouldAutoScroll = true) {
@@ -253,6 +265,11 @@ function renderProgram(payload, shouldAutoScroll = true) {
   const activeSheet = sheets.find((sheet) => sheet.id === activeProgramId) || sheets[0] || null;
   const items = payload.program?.items || [];
   const currentItemId = payload.program?.currentItemId || '';
+
+  if (currentItemId && currentItemId !== lastCurrentProgramItemId) {
+    selectedProgramItemId = currentItemId;
+  }
+  lastCurrentProgramItemId = currentItemId;
 
   if (!items.some((item) => item.id === selectedProgramItemId)) {
     selectedProgramItemId = currentItemId || items[0]?.id || '';
@@ -330,13 +347,11 @@ function renderProgram(payload, shouldAutoScroll = true) {
 
     button.append(type, title);
     button.addEventListener('click', () => {
-      selectedProgramItemId = item.id;
-      renderProgram(payload);
+      applyProgramItem(item.id);
     });
-    button.addEventListener('dblclick', () => {
-      socket.emit('control:applyProgramItem', {
-        programItemId: item.id
-      });
+    button.addEventListener('focus', () => {
+      selectedProgramItemId = item.id;
+      button.classList.add('selected');
     });
 
     li.appendChild(button);
@@ -540,7 +555,9 @@ function renderSingerControl(payload) {
   if (document.activeElement !== singerMessageInput) {
     singerMessageInput.value = singerState.message || '';
   }
-  singerCurrentLyric.textContent = payload.state.blank ? '(빈 화면)' : getLinesText(singerState.currentLines);
+  singerCurrentLyric.textContent = payload.state.blank && !(isEnabled && singerState.currentLines?.length)
+    ? '(빈 화면)'
+    : getLinesText(singerState.currentLines);
   singerNextLyric.textContent = isEnabled ? '' : (payload.state.blank ? '(빈 화면)' : getLinesText(singerState.nextLines));
   updateSingerLyricScrollState();
 }
@@ -951,9 +968,7 @@ programNoteInput.addEventListener('keydown', (event) => {
 applyProgramItemButton.addEventListener('click', () => {
   if (!selectedProgramItemId) return;
 
-  socket.emit('control:applyProgramItem', {
-    programItemId: selectedProgramItemId
-  });
+  applyProgramItem(selectedProgramItemId);
 });
 
 deleteProgramItemButton.addEventListener('click', () => {

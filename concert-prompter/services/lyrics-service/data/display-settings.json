@@ -4,12 +4,12 @@
     "fontSizeVw": 12,
     "fontWeight": 800,
     "fontColor": "#ffffff",
-    "verticalPositionPercent": 50,
+    "verticalPositionPercent": 28,
     "pptVerticalPositionPercent": 50,
     "backgroundImage": ""
   },
   "singer": {
-    "fontSizeVw": 6,
+    "fontSizeVw": 12,
     "fontWeight": 900,
     "fontColor": "#ffffff",
     "verticalPositionPercent": 50,

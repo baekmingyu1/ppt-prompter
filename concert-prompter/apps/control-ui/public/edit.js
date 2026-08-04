@@ -24,8 +24,8 @@ let creatingSong = false;
 function getEditorLines() {
   return editLyrics.value
     .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
+    .map((line) => line.replace(/\r/g, ''))
+    .filter((line) => line.length > 0);
 }
 
 function updateLineSummary() {

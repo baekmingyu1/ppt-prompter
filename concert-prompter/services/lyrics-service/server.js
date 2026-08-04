@@ -379,6 +379,14 @@ function createSongId() {
   return `song-${String(nextNumber).padStart(3, '0')}`;
 }
 
+function normalizeLyricsLines(lyrics) {
+  if (!Array.isArray(lyrics)) return [];
+
+  return lyrics
+    .map((line) => String(line).replace(/\r/g, ''))
+    .filter((line) => line.length > 0);
+}
+
 function createProgramItemId() {
   return `program-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -1202,7 +1210,7 @@ function buildControlPayload() {
   const singerLineIndex = getEffectiveSingerLineIndex(song);
   const singerMessageLines = getSingerMessageLines();
   const singerCurrentLines = state.blank
-    ? []
+    ? (state.singerControl.enabled ? singerMessageLines : [])
     : (emergencyLines.length ? emergencyLines : (state.singerControl.enabled ? singerMessageLines : getVisibleLines(lyrics, singerLineIndex, lineCount)));
   const singerNextLines = state.singerControl.enabled
     ? []
@@ -1311,7 +1319,7 @@ function buildSingerPayload() {
   const messageLines = getSingerMessageLines();
   const emergencyLines = state.blank ? [] : getEmergencyLines();
   const currentLines = state.blank
-    ? []
+    ? (state.singerControl.enabled ? messageLines : [])
     : (emergencyLines.length ? emergencyLines : (state.singerControl.enabled ? messageLines : getVisibleLines(lyrics, lineIndex, lineCount)));
   const nextLines = state.blank || state.singerControl.enabled
     ? []
@@ -1363,6 +1371,11 @@ function getConnectionPayload() {
   };
 }
 
+function syncProgramItemToMedia(type, refId) {
+  const matchingItem = getActiveProgramItems().find((item) => item.type === type && item.refId === refId);
+  state.programItemId = matchingItem?.id || '';
+}
+
 function setSong(songId, options = {}) {
   const exists = songs.some((song) => song.id === songId);
 
@@ -1376,6 +1389,9 @@ function setSong(songId, options = {}) {
   state.songId = songId;
   state.lineIndex = 0;
   state.viewMode = 'lyrics';
+  if (options.syncProgramItem !== false) {
+    syncProgramItemToMedia('song', songId);
+  }
   syncSingerLineIndex(getCurrentSong());
   touchState();
 }
@@ -1470,7 +1486,7 @@ async function updateSong({ songId, title, artist, lyrics }) {
 
   song.title = title.trim();
   song.artist = typeof artist === 'string' ? artist.trim() : '';
-  song.lyrics = lyrics.map((line) => String(line).trim()).filter(Boolean);
+  song.lyrics = normalizeLyricsLines(lyrics);
 
   if (song.lyrics.length === 0) {
     throw new Error('가사는 한 줄 이상 입력해야 합니다.');
@@ -1498,7 +1514,7 @@ async function createSong({ title, artist, lyrics }) {
     id: createSongId(),
     title: title.trim(),
     artist: typeof artist === 'string' ? artist.trim() : '',
-    lyrics: lyrics.map((line) => String(line).trim()).filter(Boolean)
+    lyrics: normalizeLyricsLines(lyrics)
   };
 
   if (nextSong.lyrics.length === 0) {
@@ -1741,7 +1757,8 @@ function applyProgramItem(programItemId, options = {}) {
 
   if (item.type === 'song') {
     setSong(item.refId, {
-      skipUndo: true
+      skipUndo: true,
+      syncProgramItem: false
     });
     if (Number.isInteger(Number(options.lineIndex))) {
       state.lineIndex = clampLineIndex(Number(options.lineIndex), getCurrentSong());
@@ -1881,8 +1898,8 @@ async function restoreBackup(payload) {
     id: String(song.id || `song-${String(index + 1).padStart(3, '0')}`),
     title: String(song.title || '').trim() || `곡 ${index + 1}`,
     artist: String(song.artist || '').trim(),
-    lyrics: Array.isArray(song.lyrics)
-      ? song.lyrics.map((line) => String(line).trim()).filter(Boolean)
+    lyrics: normalizeLyricsLines(song.lyrics).length
+      ? normalizeLyricsLines(song.lyrics)
       : ['가사를 입력해 주세요']
   }));
   ppts = Array.isArray(payload.ppts) ? payload.ppts : [];

@@ -158,7 +158,7 @@ function render(payload) {
   latestPayload = payload;
   applyDisplaySettings(payload.displaySettings);
 
-  if (payload.blank) {
+  if (payload.blank && !(payload.separateControlEnabled && payload.currentLines?.length)) {
     lyricSections.forEach((section) => {
       section.hidden = false;
     });

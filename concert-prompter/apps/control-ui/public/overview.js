@@ -382,6 +382,7 @@ function buildProgramOverviewEntries(payload) {
           itemNumber: itemIndex + 1,
           lineIndex,
           lines: groupLines,
+          firstSongCard: lineIndex === 0,
           active: item.id === currentItemId && currentLineIndex >= lineIndex && currentLineIndex <= groupEndIndex
         });
       }
@@ -451,6 +452,7 @@ function renderProgramOverview(payload) {
     button.type = 'button';
     button.className = entry.type === 'ppt' ? 'overview-slide-card' : 'overview-program-lyric-card';
     button.classList.toggle('active', entry.active);
+    button.classList.toggle('first-song-card', entry.firstSongCard);
     button.setAttribute('aria-label', `${index + 1}번 순서 카드로 이동`);
 
     if (entry.type === 'ppt') {
